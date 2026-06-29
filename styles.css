@@ -18,6 +18,13 @@ body {
   gap: clamp(7px, 1.3dvh, 14px);
 }
 
+/* Stop rapid repeat taps (e.g. mashing Undo) from triggering double-tap zoom.
+   touch-action: manipulation kills the double-tap gesture but keeps pinch-zoom. */
+.ctl, .seg-btn, .urn, .icon-button, .btn, .modal-close-x {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ── mode + label ───────────────────────────────────────────── */
 .mode-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .seg {

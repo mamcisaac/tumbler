@@ -6,11 +6,11 @@
   <meta name="description" content="A colour-sort puzzle with a twist: flip the whole rack to pour from the bottom. Solve in as few moves as you can — then beat your own score. Part of the Connect the Thoughts arcade.">
   <title>Tumbler — Connect the Thoughts</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="tokens.css?v=5">
-  <link rel="stylesheet" href="chrome.css?v=5">
-  <link rel="stylesheet" href="arcade-components.css?v=5">
-  <link rel="stylesheet" href="styles.css?v=5">
-  <script src="arcade.js?v=5" defer></script>
+  <link rel="stylesheet" href="tokens.css?v=6">
+  <link rel="stylesheet" href="chrome.css?v=6">
+  <link rel="stylesheet" href="arcade-components.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=6">
+  <script src="arcade.js?v=6" defer></script>
 </head>
 <body>
   <!-- arcade:topbar:start -->
@@ -104,12 +104,10 @@
       <p class="results-sub" id="resultsSub">You solved it in <b id="rMoves">0</b> moves.</p>
       <div class="pb-row">
         <span>Your best: <b id="rBest">–</b></span>
-        <span class="dot">·</span>
-        <span>Global best: <b id="rGlobal">–</b></span>
       </div>
-      <div class="dist">
-        <div class="dist-title">Solution distribution <span id="distNote" class="dist-note"></span></div>
-        <div id="distChart" class="dist-chart" aria-hidden="true"></div>
+      <div class="results-lb" id="resultsLbWrap">
+        <div class="results-lb-title">Today's leaderboard <span id="lbCount" class="dist-note"></span></div>
+        <div id="resultsLb" class="lb-body lb-scroll"></div>
       </div>
       <p class="improve-note" id="improveNote">Beat it: restart and try to use fewer moves — your best score is what counts.</p>
       <div class="results-actions">
@@ -167,8 +165,8 @@
   <!-- transient toast (e.g. when move highlights turn off) -->
   <div id="toast" class="toast" role="status" hidden></div>
 
-  <script src="arcade-tutorial.js?v=5"></script>
-  <script src="engine.js?v=5"></script>
-  <script src="game.js?v=5"></script>
+  <script src="arcade-tutorial.js?v=6"></script>
+  <script src="engine.js?v=6"></script>
+  <script src="game.js?v=6"></script>
 </body>
 </html>

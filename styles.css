@@ -160,6 +160,12 @@ body {
 .dist-bar.you .lab, .dist-bar.you .n { color: var(--accent); font-weight: 800; }
 .improve-note { font-size: .82rem; color: var(--fg-subtle); text-align: center; margin: 0 0 14px; }
 
+/* results-modal leaderboard */
+.results-lb { margin: 6px 0 12px; }
+.results-lb-title { font-size: .82rem; font-weight: 700; color: var(--fg-muted); margin-bottom: 6px; text-align: center; }
+.lb-scroll { max-height: 216px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.lb-rank { min-width: 26px; }
+
 .share-card-wrap { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .share-card-wrap img { width: 100%; max-width: 340px; border-radius: var(--radius-md); border: 1px solid var(--border); }
 .share-card-wrap .tiny { font-size: .78rem; color: var(--fg-subtle); }

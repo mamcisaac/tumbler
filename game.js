@@ -27,15 +27,6 @@
       return await r.json();
     } catch (_) { return null; }
   }
-  // Reduce many rows (incl. repeat submissions) to ONE best score per handle.
-  function bestByHandle(rows) {
-    const m = new Map();
-    for (const r of rows || []) {
-      const h = (r.handle || '').slice(0, 24);
-      if (!m.has(h) || r.score < m.get(h)) m.set(h, r.score);
-    }
-    return m; // handle -> best score (moves)
-  }
 
   // ── state ──────────────────────────────────────────────────────────────────
   let PUZZLES = null, CAP = 4;
@@ -249,7 +240,8 @@
     refreshBestChip();
 
     if (!getHandle()) { await promptName(); }
-    if (improved) await lbSubmit(dailyBoardKey(puzzleId), moves, { par });
+    // Record EVERY completion (not just improvements) so all times show on the board.
+    await lbSubmit(dailyBoardKey(puzzleId), moves, { par });
 
     const rows = await lbFetch(dailyBoardKey(puzzleId));
     showResults(moves, getLocalBest(), rows);
@@ -262,59 +254,38 @@
     else sub.innerHTML = `You solved today's puzzle in <b>${moves}</b> moves.`;
 
     const pbRow = document.querySelector('.pb-row');
-    if (mode === 'practice') { pbRow.style.display = 'none'; $('improveNote').textContent = 'Practice puzzles don\'t count on the leaderboard — but you can keep trimming moves.'; }
-    else {
-      pbRow.style.display = 'flex';
+    const lbWrap = $('resultsLbWrap');
+    if (mode === 'practice') {
+      pbRow.style.display = 'none'; lbWrap.style.display = 'none';
+      $('improveNote').textContent = 'Practice puzzles don’t count on the leaderboard — but you can keep trimming moves.';
+    } else {
+      pbRow.style.display = 'flex'; lbWrap.style.display = '';
       $('rBest').textContent = localBest != null ? localBest : moves;
-      const lbBest = rows && rows.length ? Math.min.apply(null, rows.map(r => r.score)) : Infinity;
-      const globalBest = Math.min(par || Infinity, lbBest, moves);
-      $('rGlobal').textContent = isFinite(globalBest) ? globalBest : moves;
       $('improveNote').textContent = (localBest != null && moves > localBest)
         ? `Your best is ${localBest}. Restart and try to match or beat it.`
         : 'Beat it: restart and try to use fewer moves — your best score is the one that counts.';
+      const count = rows ? rows.length : 0;
+      $('lbCount').textContent = count ? `· ${count} time${count === 1 ? '' : 's'} logged` : '';
+      $('resultsLb').innerHTML = (rows && rows.length)
+        ? lbListHtml(rows, 60)
+        : '<div class="lb-status">Be the first to post a time!</div>';
     }
-    buildHistogram(rows, mode === 'daily' ? getLocalBest() : null);
     $('shareCardWrap').hidden = true; $('shareCardWrap').innerHTML = '';
     openModal('resultsModal');
   }
 
-  function buildHistogram(rows, youScore) {
-    const chart = $('distChart'); chart.innerHTML = '';
-    const note = $('distNote');
-    const best = bestByHandle(rows);
-    const scores = [...best.values()];
-    if (mode === 'practice' || scores.length === 0) {
-      // Synthetic single-point view around par so the panel isn't empty.
-      note.textContent = scores.length ? '' : (mode === 'daily' ? '· be the first to post a score' : '');
-      const around = youScore || (par || moveCount);
-      const lo = Math.min(par || around, around) - 1, hi = Math.max(par || around, around) + 2;
-      for (let s = lo; s <= hi; s++) addBar(chart, s, s === around ? 1 : 0, hi - lo, { you: s === (youScore || around), best: s === (par || around) });
-      return;
-    }
-    note.textContent = `· ${best.size} solver${best.size === 1 ? '' : 's'}`;
-    const buckets = {};
-    let lo = Infinity, hi = -Infinity;
-    for (const s of scores) { buckets[s] = (buckets[s] || 0) + 1; lo = Math.min(lo, s); hi = Math.max(hi, s); }
-    if (youScore != null) { lo = Math.min(lo, youScore); hi = Math.max(hi, youScore); }
-    // cap width
-    if (hi - lo > 16) hi = lo + 16;
-    const maxN = Math.max.apply(null, Object.values(buckets));
-    const globalBest = lo;
-    for (let s = lo; s <= hi; s++) {
-      addBar(chart, s, buckets[s] || 0, maxN, { you: s === youScore, best: s === globalBest });
-    }
-    if (youScore != null) {
-      const better = scores.filter(s => s > youScore).length;
-      const pct = Math.round(100 * better / scores.length);
-      note.textContent += ` · better than ${pct}%`;
-    }
-  }
-  function addBar(chart, score, n, maxN, flags) {
-    const bar = document.createElement('div');
-    bar.className = 'dist-bar' + (flags.you ? ' you' : '') + (!flags.you && flags.best ? ' best' : '');
-    const h = maxN > 0 ? Math.max(4, Math.round(96 * n / maxN)) : 4;
-    bar.innerHTML = `<div class="n">${n || ''}</div><div class="bar" style="height:${h}px"></div><div class="lab">${score}</div>`;
-    chart.appendChild(bar);
+  // Render ALL completion times, best first. No dedup: a player who finished
+  // several times shows up once per time, so you can see every run.
+  function lbListHtml(rows, limit) {
+    const me = getHandle();
+    const sorted = rows.slice().sort((a, b) => a.score - b.score).slice(0, limit || 80);
+    return sorted.map((r, i) => {
+      const rank = i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1);
+      const mine = (r.handle || '') === me;
+      return `<div class="lb-row${mine ? ' me' : ''}"><span class="lb-rank">${rank}</span>` +
+        `<span class="lb-name">${escapeHtml(r.handle || 'anon')}</span>` +
+        `<span class="lb-score">${r.score}<small> mv</small></span></div>`;
+    }).join('');
   }
 
   // ── share ──────────────────────────────────────────────────────────────────
@@ -354,14 +325,8 @@
     const dayNum = Math.floor(Date.now() / 86400000);
     const rows = await lbFetch(dailyBoardKey(utcDateStr(dayNum)));
     if (rows == null) { body.innerHTML = '<div class="lb-status">Leaderboard unavailable.</div>'; return; }
-    const best = bestByHandle(rows);
-    const list = [...best.entries()].map(([h, s]) => ({ h, s })).sort((a, b) => a.s - b.s).slice(0, 50);
-    if (!list.length) { body.innerHTML = '<div class="lb-status">No scores yet today — be the first!</div>'; return; }
-    const me = getHandle();
-    body.innerHTML = list.map((r, i) =>
-      `<div class="lb-row${r.h === me ? ' me' : ''}"><span class="lb-rank">${i + 1}</span>` +
-      `<span class="lb-name">${escapeHtml(r.h || 'anon')}</span>` +
-      `<span class="lb-score">${r.s}<small> mv</small></span></div>`).join('');
+    if (!rows.length) { body.innerHTML = '<div class="lb-status">No times yet today — be the first!</div>'; return; }
+    body.innerHTML = lbListHtml(rows, 80);
   }
   function renderYou() {
     let h = [];

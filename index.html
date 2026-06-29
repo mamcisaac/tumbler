@@ -6,11 +6,11 @@
   <meta name="description" content="A colour-sort puzzle with a twist: flip the whole rack to pour from the bottom. Solve in as few moves as you can — then beat your own score. Part of the Connect the Thoughts arcade.">
   <title>Tumbler — Connect the Thoughts</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="tokens.css?v=4">
-  <link rel="stylesheet" href="chrome.css?v=4">
-  <link rel="stylesheet" href="arcade-components.css?v=4">
-  <link rel="stylesheet" href="styles.css?v=4">
-  <script src="arcade.js?v=4" defer></script>
+  <link rel="stylesheet" href="tokens.css?v=5">
+  <link rel="stylesheet" href="chrome.css?v=5">
+  <link rel="stylesheet" href="arcade-components.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=5">
+  <script src="arcade.js?v=5" defer></script>
 </head>
 <body>
   <!-- arcade:topbar:start -->
@@ -70,7 +70,7 @@
       </div>
     </div>
 
-    <div id="board" class="board" aria-label="Colour rack"></div>
+    <div id="board" class="board" aria-label="Rack of tumblers"></div>
 
     <div class="controls">
       <button id="rotateBtn" class="ctl ctl-rotate" type="button" title="Flip the rack (costs a move)">
@@ -92,7 +92,7 @@
         <span>Restart</span>
       </button>
     </div>
-    <p class="hint" id="hint">Tap an urn, then tap where to pour. <b>Rotate</b> flips the whole rack so the bottom becomes the top.</p>
+    <p class="hint" id="hint">Tap a tumbler, then tap where to pour. <b>Rotate</b> turns the rack over.</p>
   </main>
 
   <!-- Results modal -->
@@ -151,16 +151,24 @@
       <button class="modal-close-x" data-close type="button" aria-label="Close">&times;</button>
       <h2 id="helpTitle">How to play</h2>
       <ul class="help-list">
-        <li><b>Goal:</b> sort the colours so every urn holds just one colour (one urn may be left empty).</li>
-        <li><b>Pour:</b> tap an urn to pick it up, then tap another urn to pour its top colour over. You can only pour onto the same colour or into an urn with room.</li>
-        <li><b>Rotate:</b> the <b>Rotate</b> button flips the whole rack 180° — the <b>bottom of every urn becomes the top</b>. It's the only way to reach colours buried at the bottom.</li>
-        <li><b>Every pour and every rotate costs one move.</b> The goal is to solve in as few moves as possible.</li>
-        <li><b>Unlimited undo &amp; restart.</b> Unlike the rest of the arcade, you can replay the daily as many times as you like — your <b>best</b> score is the one that counts, so keep trimming moves.</li>
+        <li><b>Goal:</b> sort the colours so every <b>tumbler</b> holds just one colour (one tumbler may be left empty).</li>
+        <li><b>Pour:</b> tap a tumbler to pick it up, then tap another to pour its top colour across. You can only pour onto a matching colour, or into a tumbler with room.</li>
+        <li><b>Rotate:</b> the <b>Rotate</b> button turns the whole rack over — the <b>bottom of every tumbler becomes the top</b> and the beads fall. It's the only way to reach colours buried at the bottom.</li>
+        <li><b>Every pour and every rotate costs one move.</b> Solve in as few moves as you can.</li>
+        <li><b>Unlimited undo &amp; restart.</b> Unlike the rest of the arcade, you can replay the daily as often as you like — your <b>best</b> score is the one that counts, so keep trimming moves.</li>
       </ul>
+      <label class="help-toggle">
+        <input type="checkbox" id="highlightToggle">
+        <span>Highlight possible moves when I pick up a tumbler</span>
+      </label>
     </div>
   </div>
 
-  <script src="engine.js?v=4"></script>
-  <script src="game.js?v=4"></script>
+  <!-- transient toast (e.g. when move highlights turn off) -->
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="arcade-tutorial.js?v=5"></script>
+  <script src="engine.js?v=5"></script>
+  <script src="game.js?v=5"></script>
 </body>
 </html>

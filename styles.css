@@ -4,7 +4,7 @@ html, body { background: var(--bg); }
 body {
   color: var(--fg);
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
   font-family: var(--font-sans);
   -webkit-text-size-adjust: 100%;
 }
@@ -12,10 +12,10 @@ body {
 .container {
   max-width: 560px;
   margin: 0 auto;
-  padding: 14px 14px 40px;
+  padding: 8px 14px 14px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: clamp(7px, 1.3dvh, 14px);
 }
 
 /* ── mode + label ───────────────────────────────────────────── */
@@ -35,7 +35,7 @@ body {
 /* ── HUD ─────────────────────────────────────────────────────── */
 .hud { display: flex; align-items: baseline; justify-content: space-between; }
 .hud-moves { display: flex; align-items: baseline; gap: 8px; }
-.hud-num { font-size: 2.4rem; font-weight: 800; line-height: 1; color: var(--fg); font-variant-numeric: tabular-nums; }
+.hud-num { font-size: clamp(1.7rem, 5dvh, 2.4rem); font-weight: 800; line-height: 1; color: var(--fg); font-variant-numeric: tabular-nums; }
 .hud-num.bump { animation: bump .22s ease; }
 @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.25); color: var(--accent); } 100% { transform: scale(1); } }
 .hud-cap { color: var(--fg-subtle); font-size: .9rem; font-weight: 600; }
@@ -48,9 +48,12 @@ body {
 
 /* ── board / tumblers ────────────────────────────────────────── */
 .board {
-  display: grid; grid-template-columns: repeat(3, auto);
-  justify-content: center; align-items: end;
-  gap: 16px 18px; padding: 18px 6px; min-height: 220px;
+  --cell: clamp(24px, 4.4dvh, 38px); --gap: clamp(4px, .8dvh, 6px);
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end;
+  gap: clamp(8px, 1.7dvh, 15px) 9px;
+  /* exactly 5 tumblers per row -> 9 wrap into a centred 5 + 4 */
+  max-width: calc(5 * (var(--cell) + 13px) + 4 * 9px + 2px);
+  margin: 0 auto; padding: clamp(4px, 1.4dvh, 14px) 0;
   perspective: 1300px;
 }
 .board.flash { animation: boardFlash .5s ease; }
@@ -59,9 +62,9 @@ body {
 /* A tumbler is a vertically-SYMMETRIC capsule — no obvious top or bottom — so a
    180° flip reads naturally and the shape never appears to change. */
 .urn {
-  --cell: 38px; --gap: 6px; --r: 11px;
-  width: 50px; height: calc(4 * var(--cell) + 3 * var(--gap) + 16px);
-  box-sizing: border-box; padding: 8px;
+  --r: 11px;
+  width: calc(var(--cell) + 13px); height: calc(4 * var(--cell) + 3 * var(--gap) + 14px);
+  box-sizing: border-box; padding: 7px;
   border-radius: 16px;
   background: color-mix(in srgb, var(--bg-elev) 60%, transparent);
   border: 1.5px solid var(--border-strong);
@@ -109,7 +112,7 @@ body {
 .controls { display: flex; gap: 10px; justify-content: center; }
 .ctl {
   appearance: none; cursor: pointer; font: inherit; font-weight: 700; font-size: .92rem;
-  display: inline-flex; align-items: center; gap: 7px; padding: 11px 16px; border-radius: var(--radius-md);
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border-radius: var(--radius-md);
   background: var(--bg-elev); color: var(--fg); border: 1px solid var(--border-strong);
   transition: transform .1s, background .15s, border-color .15s, opacity .15s;
 }
@@ -119,8 +122,22 @@ body {
 .ctl-rotate { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 .ctl-rotate svg { transition: transform .4s cubic-bezier(.5,0,.3,1); }
 .ctl-rotate:hover svg { transform: rotate(-180deg); }
-.hint { text-align: center; color: var(--fg-subtle); font-size: .85rem; margin: 0; }
+.hint { text-align: center; color: var(--fg-subtle); font-size: .8rem; margin: 0; }
 .hint b { color: var(--fg-muted); }
+@media (max-height: 700px) { .hint { display: none; } }
+
+/* help toggle + transient toast */
+.help-toggle { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); cursor: pointer; color: var(--fg-muted); font-size: .9rem; }
+.help-toggle input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; cursor: pointer; }
+.toast {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(12px);
+  background: var(--bg-elev); color: var(--fg); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 11px 16px; font-size: .84rem; font-weight: 600;
+  box-shadow: var(--shadow-lg); max-width: 86vw; text-align: center; z-index: 60;
+  opacity: 0; transition: opacity .25s ease, transform .25s ease; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast[hidden] { display: none; }
 
 /* ── modals (build on shared .modal-backdrop / .modal-card) ──── */
 .results-emoji { font-size: 2.4rem; text-align: center; }
@@ -164,9 +181,7 @@ body {
   border-radius: var(--radius-md); border: 1px solid var(--border-strong); background: var(--bg); color: var(--fg); }
 
 @media (max-width: 420px) {
-  .urn { width: 46px; --cell: 34px; }
-  .hud-num { font-size: 2rem; }
   .ctl span { display: none; }
-  .ctl { padding: 11px 14px; }
+  .ctl { padding: 10px 14px; }
   .ctl-rotate span { display: inline; }
 }

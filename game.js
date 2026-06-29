@@ -118,7 +118,7 @@
       urn.dataset.i = i;
       if (isDone(tube)) urn.classList.add('done');
       if (i === selected) urn.classList.add('is-selected');
-      else if (selected >= 0 && canPour(selected, i)) urn.classList.add('is-target');
+      else if (selected >= 0 && effectiveHighlight() && canPour(selected, i)) urn.classList.add('is-target');
       else if (selected < 0 && tube.length) urn.classList.add('is-selectable');
       const stack = document.createElement('div');
       stack.className = 'stack';
@@ -180,6 +180,7 @@
     pushHistory();
     board = E.pour(board, i, j, CAP);
     moveCount++; selected = -1; lastDrop = { j: j, n: n, merged: merged };
+    registerMove();
     afterMove();
   }
   function doRotate() {
@@ -188,7 +189,7 @@
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const finish = () => {
       pushHistory();
-      board = E.rotate(board); moveCount++;
+      board = E.rotate(board); moveCount++; registerMove();
       render({ fall: true }); // upright tumblers, reversed data, beads fall into place
       animating = false; updateHud(); checkWin();
     };
@@ -390,6 +391,78 @@
   function openModal(id) { $(id).hidden = false; }
   function closeModal(id) { $(id).hidden = true; }
 
+  // ── move-highlight setting + new-player teaching ─────────────────────────
+  const HL_KEY = 'ctt.tumbler.highlightMoves', TEACH_KEY = 'ctt.tumbler.teachMoves', POPUP_KEY = 'ctt.tumbler.hlPopupShown';
+  const TEACH_LIMIT = 6;
+  function getHLPref() { try { return localStorage.getItem(HL_KEY); } catch (_) { return null; } }
+  function teachMoves() { try { return parseInt(localStorage.getItem(TEACH_KEY), 10) || 0; } catch (_) { return 0; } }
+  function effectiveHighlight() {
+    const p = getHLPref();
+    if (p === 'on') return true;
+    if (p === 'off') return false;
+    return teachMoves() < TEACH_LIMIT;          // teach a brand-new player, then stop
+  }
+  function registerMove() {
+    if (getHLPref() !== null) return;            // player has set a preference — teaching is over
+    let t = teachMoves();
+    if (t >= TEACH_LIMIT) return;
+    t++; try { localStorage.setItem(TEACH_KEY, String(t)); } catch (_) {}
+    if (t >= TEACH_LIMIT) {                       // highlights have just turned off
+      let shown = null; try { shown = localStorage.getItem(POPUP_KEY); } catch (_) {}
+      if (!shown) {
+        try { localStorage.setItem(POPUP_KEY, '1'); } catch (_) {}
+        showToast('Move highlights are off now — turn them back on anytime in How to play.');
+      }
+    }
+  }
+  function setHighlight(on) { try { localStorage.setItem(HL_KEY, on ? 'on' : 'off'); } catch (_) {} render(); }
+
+  // ── transient toast ──────────────────────────────────────────────────────
+  let toastTimer = null;
+  function showToast(msg) {
+    const t = $('toast'); if (!t) return;
+    t.textContent = msg; t.hidden = false;
+    requestAnimationFrame(() => t.classList.add('show'));
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.classList.remove('show'); setTimeout(() => { t.hidden = true; }, 300); }, 5200);
+  }
+
+  // ── first-play tutorial (shared arcade carousel) ─────────────────────────
+  function initTutorial() {
+    if (!window.ArcadeTutorial) return;
+    const R = '#e6194B', O = '#f58231', Y = '#ffe119', G = '#3cb44b', C = '#42d4f4', B = '#4363d8', P = '#911eb4';
+    const svg = (inner) => '<svg viewBox="0 0 170 92" width="180" xmlns="http://www.w3.org/2000/svg">' + inner + '</svg>';
+    const shell = (x, w, h) => '<rect x="' + x + '" y="14" width="' + w + '" height="' + h + '" rx="11" fill="none" stroke="currentColor" stroke-width="2" opacity=".5"/>';
+    const beads = (x, list, h) => { // bottom-up coloured beads inside a shell at column x
+      const w = 24, bh = 15; let s = shell(x, w, h);
+      list.forEach((c, idx) => { const by = 14 + h - 4 - (idx + 1) * bh; s += '<rect x="' + (x + 4) + '" y="' + by + '" width="' + (w - 8) + '" height="' + (bh - 2) + '" rx="4" fill="' + c + '"/>'; });
+      return s;
+    };
+    const arrow = (d) => '<path d="' + d + '" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>';
+    const art1 = svg(beads(20, [R, B, Y], 64) + arrow('M58 48 h22 M73 42 l7 6 -7 6') +
+      shell(98, 24, 64) + '<rect x="102" y="18" width="16" height="56" rx="6" fill="' + G + '"/>' +
+      '<text x="110" y="52" font-size="15" fill="#fff" text-anchor="middle" font-weight="900">✓</text>');
+    const art2 = svg(beads(34, [B, R], 64) + arrow('M60 26 C 82 6, 100 6, 114 30 M114 30 l-7 -2 l2 -7') +
+      beads(108, [R], 64));
+    const art3 = svg(arrow('M44 50 A38 30 0 0 1 122 44 M122 44 l-9 1 l4 -8') +
+      beads(73, [O, P], 48));
+    const art4 = svg('<g fill="currentColor"><rect x="36" y="54" width="13" height="24" rx="2" opacity=".35"/>' +
+      '<rect x="54" y="42" width="13" height="36" rx="2" opacity=".35"/><rect x="72" y="30" width="13" height="48" rx="2"/>' +
+      '<rect x="90" y="46" width="13" height="32" rx="2" opacity=".35"/><rect x="108" y="58" width="13" height="20" rx="2" opacity=".35"/></g>' +
+      arrow('M78 22 l0 -10 M73 17 l5 -5 5 5'));
+    const tut = window.ArcadeTutorial.createTutorial({
+      gameSlug: 'tumbler',
+      steps: [
+        { art: art1, title: 'Sort the colours', body: 'Pour colours between the <b>tumblers</b> until each one holds a single colour. One tumbler can be left empty.' },
+        { art: art2, title: 'Tap to pour', body: 'Tap a tumbler to pick it up, then tap another to pour its <b>top</b> colour across — onto a matching colour, or into a tumbler with room.' },
+        { art: art3, title: 'Turn the rack over', body: 'The <b>Rotate</b> button flips the whole rack — the <b>bottom of every tumbler becomes the top</b> and the beads fall. It’s the only way to reach buried colours.' },
+        { art: art4, title: 'Fewest moves wins', body: 'Every pour <i>and</i> every rotate is a move. Solve in as few as you can — then replay the daily to <b>beat your own best</b> and climb the chart.' },
+      ],
+    });
+    tut.wire();
+    tut.maybeAutoStart();
+  }
+
   // ── wiring ───────────────────────────────────────────────────────────────────
   function wire() {
     boardEl.addEventListener('click', (e) => {
@@ -402,7 +475,8 @@
     $('modeDaily').addEventListener('click', () => { setMode('daily'); });
     $('modePractice').addEventListener('click', () => { setMode('practice'); });
     $('lbButton').addEventListener('click', openLeaderboard);
-    $('helpButton').addEventListener('click', () => openModal('helpModal'));
+    $('helpButton').addEventListener('click', () => { $('highlightToggle').checked = effectiveHighlight(); openModal('helpModal'); });
+    $('highlightToggle').addEventListener('change', (e) => setHighlight(e.target.checked));
     $('lbToday').addEventListener('click', () => setLbScope('today'));
     $('lbYou').addEventListener('click', () => setLbScope('you'));
     $('rShare').addEventListener('click', doShare);
@@ -432,7 +506,7 @@
 
   // ── boot ─────────────────────────────────────────────────────────────────────
   fetch('puzzles.json?v=1').then((r) => r.json()).then((data) => {
-    PUZZLES = data; wire(); startDaily();
+    PUZZLES = data; wire(); startDaily(); initTutorial();
   }).catch((err) => {
     boardEl.innerHTML = '<div class="lb-status">Could not load puzzles. Refresh to try again.</div>';
     console.error(err);

@@ -129,6 +129,11 @@ body {
 .ctl-rotate { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 .ctl-rotate svg { transition: transform .4s cubic-bezier(.5,0,.3,1); }
 .ctl-rotate:hover svg { transform: rotate(-180deg); }
+/* Restart sits on its own line, separated, and styled quietly so it isn't tapped by accident */
+.controls-restart { margin-top: clamp(8px, 1.6dvh, 16px); }
+.ctl-ghost { background: transparent; color: var(--fg-subtle); border-color: var(--border); padding: 8px 18px; font-size: .85rem; font-weight: 600; }
+.ctl-ghost:hover { border-color: var(--accent); color: var(--fg); }
+.ctl-ghost svg { opacity: .85; }
 .hint { text-align: center; color: var(--fg-subtle); font-size: .8rem; margin: 0; }
 .hint b { color: var(--fg-muted); }
 @media (max-height: 700px) { .hint { display: none; } }
@@ -196,5 +201,5 @@ body {
 @media (max-width: 420px) {
   .ctl span { display: none; }
   .ctl { padding: 10px 14px; }
-  .ctl-rotate span { display: inline; }
+  .ctl-rotate span, .ctl-ghost span { display: inline; }
 }

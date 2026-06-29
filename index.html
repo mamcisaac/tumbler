@@ -6,11 +6,11 @@
   <meta name="description" content="A colour-sort puzzle with a twist: flip the whole rack to pour from the bottom. Solve in as few moves as you can — then beat your own score. Part of the Connect the Thoughts arcade.">
   <title>Tumbler — Connect the Thoughts</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="tokens.css?v=7">
-  <link rel="stylesheet" href="chrome.css?v=7">
-  <link rel="stylesheet" href="arcade-components.css?v=7">
-  <link rel="stylesheet" href="styles.css?v=7">
-  <script src="arcade.js?v=7" defer></script>
+  <link rel="stylesheet" href="tokens.css?v=8">
+  <link rel="stylesheet" href="chrome.css?v=8">
+  <link rel="stylesheet" href="arcade-components.css?v=8">
+  <link rel="stylesheet" href="styles.css?v=8">
+  <script src="arcade.js?v=8" defer></script>
 </head>
 <body>
   <!-- arcade:topbar:start -->
@@ -85,8 +85,10 @@
         </svg>
         <span>Undo</span>
       </button>
-      <button id="restartBtn" class="ctl" type="button" title="Restart this puzzle">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    </div>
+    <div class="controls controls-restart">
+      <button id="restartBtn" class="ctl ctl-ghost" type="button" title="Restart this puzzle">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3"/><path d="M3 3v5h5"/>
         </svg>
         <span>Restart</span>
@@ -165,8 +167,8 @@
   <!-- transient toast (e.g. when move highlights turn off) -->
   <div id="toast" class="toast" role="status" hidden></div>
 
-  <script src="arcade-tutorial.js?v=7"></script>
-  <script src="engine.js?v=7"></script>
-  <script src="game.js?v=7"></script>
+  <script src="arcade-tutorial.js?v=8"></script>
+  <script src="engine.js?v=8"></script>
+  <script src="game.js?v=8"></script>
 </body>
 </html>

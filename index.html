@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="A colour-sort puzzle with a twist: flip the whole rack to pour from the bottom. Solve in as few moves as you can — then beat your own score. Part of the Connect the Thoughts arcade.">
+  <title>Tumbler — Connect the Thoughts</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="tokens.css?v=1">
+  <link rel="stylesheet" href="chrome.css?v=1">
+  <link rel="stylesheet" href="arcade-components.css?v=1">
+  <link rel="stylesheet" href="styles.css?v=1">
+  <script src="arcade.js?v=1" defer></script>
+</head>
+<body>
+  <!-- arcade:topbar:start -->
+  <header class="topbar">
+    <a class="brand" href="https://connectthethoughts.ca/" aria-label="Connect the Thoughts — arcade home">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="7" cy="8" r="2.5"/><circle cx="25" cy="8" r="2.5"/>
+          <circle cx="7" cy="24" r="2.5"/><circle cx="25" cy="24" r="2.5"/>
+          <path d="M9.5 8 L22.5 8 M9.5 24 L22.5 24 M7 10.5 L7 21.5 M25 10.5 L25 21.5 M9 10 L23 22"/>
+        </svg>
+      </span>
+      <span class="brand-text">Connect the Thoughts</span>
+      <span class="brand-sep" aria-hidden="true">·</span>
+      <span class="brand-game">Tumbler</span>
+    </a>
+    <div class="topbar-actions">
+      <button id="lbButton" class="icon-button" type="button" aria-label="Leaderboard" title="Leaderboard">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+      </button>
+      <button id="themeToggle" class="icon-button" type="button" aria-label="Toggle dark mode" title="Toggle dark mode" aria-pressed="false" data-arcade-theme-toggle>
+        <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+      <button id="helpButton" class="icon-button" type="button" aria-label="How to play" title="How to play" data-arcade-help>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 1 1 4.4 1.6c-.7.7-1.4 1-1.9 1.6-.3.4-.5 1-.5 1.8"/><circle cx="12" cy="17.5" r="0.6" fill="currentColor"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+  <!-- arcade:topbar:end -->
+
+  <main class="container">
+    <div class="mode-row">
+      <div class="seg" role="tablist" aria-label="Mode">
+        <button class="seg-btn is-active" id="modeDaily" role="tab" aria-selected="true">Daily</button>
+        <button class="seg-btn" id="modePractice" role="tab" aria-selected="false">Practice</button>
+      </div>
+      <div class="puzzle-label" id="puzzleLabel">Daily</div>
+    </div>
+
+    <div class="hud">
+      <div class="hud-moves">
+        <span class="hud-num" id="moveCount">0</span>
+        <span class="hud-cap">moves</span>
+      </div>
+      <div class="hud-meta">
+        <span id="parChip" class="par-chip" title="A strong target for this board">par <b id="parVal">–</b></span>
+        <span id="bestChip" class="best-chip" hidden>best <b id="bestVal">–</b></span>
+      </div>
+    </div>
+
+    <div id="board" class="board" aria-label="Colour rack"></div>
+
+    <div class="controls">
+      <button id="rotateBtn" class="ctl ctl-rotate" type="button" title="Flip the rack (costs a move)">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/>
+        </svg>
+        <span>Rotate</span>
+      </button>
+      <button id="undoBtn" class="ctl" type="button" title="Undo last move">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/>
+        </svg>
+        <span>Undo</span>
+      </button>
+      <button id="restartBtn" class="ctl" type="button" title="Restart this puzzle">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3"/><path d="M3 3v5h5"/>
+        </svg>
+        <span>Restart</span>
+      </button>
+    </div>
+    <p class="hint" id="hint">Tap an urn, then tap where to pour. <b>Rotate</b> flips the whole rack so the bottom becomes the top.</p>
+  </main>
+
+  <!-- Results modal -->
+  <div id="resultsModal" class="modal-backdrop" hidden>
+    <div class="modal results-card" role="dialog" aria-modal="true" aria-labelledby="resultsTitle">
+      <button class="modal-close-x" data-close type="button" aria-label="Close">&times;</button>
+      <div class="results-emoji" aria-hidden="true">🎉</div>
+      <h2 id="resultsTitle" class="results-headline">Solved!</h2>
+      <p class="results-sub" id="resultsSub">You solved it in <b id="rMoves">0</b> moves.</p>
+      <div class="pb-row">
+        <span>Your best: <b id="rBest">–</b></span>
+        <span class="dot">·</span>
+        <span>Global best: <b id="rGlobal">–</b></span>
+      </div>
+      <div class="dist">
+        <div class="dist-title">Solution distribution <span id="distNote" class="dist-note"></span></div>
+        <div id="distChart" class="dist-chart" aria-hidden="true"></div>
+      </div>
+      <p class="improve-note" id="improveNote">Beat it: restart and try to use fewer moves — your best score is what counts.</p>
+      <div class="results-actions">
+        <button id="rShare" class="btn" type="button">Share</button>
+        <button id="rImprove" class="btn btn-primary" type="button">Try to improve</button>
+      </div>
+      <div id="shareCardWrap" class="share-card-wrap" hidden></div>
+    </div>
+  </div>
+
+  <!-- Leaderboard modal -->
+  <div id="lbModal" class="modal-backdrop" hidden>
+    <div class="modal lb-modal-inner" role="dialog" aria-modal="true" aria-labelledby="lbTitle">
+      <button class="modal-close-x" data-close type="button" aria-label="Close">&times;</button>
+      <h2 id="lbTitle">Leaderboard</h2>
+      <div class="seg lb-scope" role="tablist">
+        <button class="seg-btn is-active" id="lbToday" role="tab">Today</button>
+        <button class="seg-btn" id="lbYou" role="tab">You</button>
+      </div>
+      <div id="lbBody" class="lb-body"><div class="lb-status">Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- Name modal -->
+  <div id="nameModal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="nameTitle">
+      <h2 id="nameTitle">Pick a name</h2>
+      <p class="results-sub">Shown on the leaderboard. You can change it anytime.</p>
+      <input id="nameInput" class="lb-input" type="text" maxlength="24" placeholder="e.g. teal_otter" autocomplete="off">
+      <div class="results-actions">
+        <button id="nameSave" class="btn btn-primary" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help modal -->
+  <div id="helpModal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <button class="modal-close-x" data-close type="button" aria-label="Close">&times;</button>
+      <h2 id="helpTitle">How to play</h2>
+      <ul class="help-list">
+        <li><b>Goal:</b> sort the colours so every urn holds just one colour (one urn may be left empty).</li>
+        <li><b>Pour:</b> tap an urn to pick it up, then tap another urn to pour its top colour over. You can only pour onto the same colour or into an urn with room.</li>
+        <li><b>Rotate:</b> the <b>Rotate</b> button flips the whole rack 180° — the <b>bottom of every urn becomes the top</b>. It's the only way to reach colours buried at the bottom.</li>
+        <li><b>Every pour and every rotate costs one move.</b> The goal is to solve in as few moves as possible.</li>
+        <li><b>Unlimited undo &amp; restart.</b> Unlike the rest of the arcade, you can replay the daily as many times as you like — your <b>best</b> score is the one that counts, so keep trimming moves.</li>
+      </ul>
+    </div>
+  </div>
+
+  <script src="engine.js?v=1"></script>
+  <script src="game.js?v=1"></script>
+</body>
+</html>

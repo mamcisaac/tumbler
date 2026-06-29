@@ -111,7 +111,7 @@
   function render(opts) {
     opts = opts || {};
     boardEl.innerHTML = '';
-    const R = 11, SLOT = 38 + 6; // cell + gap, matches CSS --cell/--gap
+    const R = 11;
     board.forEach((tube, i) => {
       const urn = document.createElement('div');
       urn.className = 'urn';
@@ -122,30 +122,34 @@
       else if (selected < 0 && tube.length) urn.classList.add('is-selectable');
       const stack = document.createElement('div');
       stack.className = 'stack';
-      const runLen = (i === selected) ? topRunLen(tube) : 0;
-      // render top -> bottom (data index high -> low)
-      for (let k = tube.length - 1; k >= 0; k--) {
-        const c = tube[k];
-        const connUp = (k < tube.length - 1) && tube[k + 1] === c;   // same colour above
-        const connDown = (k > 0) && tube[k - 1] === c;               // same colour below
+      // group bottom -> top into runs of equal colour; each run is ONE bead
+      const runs = [];
+      for (let k = 0; k < tube.length;) {
+        const c = tube[k]; let len = 1;
+        while (k + len < tube.length && tube[k + len] === c) len++;
+        runs.push({ c: c, len: len }); k += len;
+      }
+      // render top -> bottom (topmost run first in DOM)
+      for (let r = runs.length - 1; r >= 0; r--) {
+        const run = runs[r];
+        const isTop = (r === runs.length - 1);
+        const isBottom = (r === 0);
         const bead = document.createElement('div');
-        bead.className = 'bead c' + c;
-        // glob: square the corners + close the gap where it meets a matching bead
-        bead.style.borderRadius = (connUp ? '2px 2px ' : R + 'px ' + R + 'px ') + (connDown ? '2px 2px' : R + 'px ' + R + 'px');
-        bead.style.marginBottom = (k > 0 && !connDown) ? 'var(--gap)' : '0';
-        const sh = [];
-        if (!connUp) sh.push('inset 0 4px 6px rgba(255,255,255,.28)');
-        if (!connDown) sh.push('inset 0 -7px 10px rgba(0,0,0,.30)');
-        bead.style.boxShadow = sh.join(', ');
-        if (i === selected && k >= tube.length - runLen) bead.classList.add('lifted');
-        if (lastDrop && lastDrop.j === i && k >= tube.length - lastDrop.n) bead.classList.add('drop');
-        const sym = document.createElement('span'); sym.className = 'sym'; sym.textContent = SYM[c] || '';
-        bead.appendChild(sym);
+        bead.className = 'bead c' + run.c;
+        // one solid bead spanning the whole run (responsive via CSS vars)
+        bead.style.height = 'calc(' + run.len + ' * var(--cell) + ' + (run.len - 1) + ' * var(--gap))';
+        bead.style.borderRadius = R + 'px';
+        bead.style.marginBottom = isBottom ? '0' : 'var(--gap)';
+        bead.style.boxShadow = 'inset 0 5px 7px rgba(255,255,255,.26), inset 0 -9px 12px rgba(0,0,0,.30)';
+        if (i === selected && isTop) bead.classList.add('lifted'); // lift the whole top run
+        if (lastDrop && lastDrop.j === i && isTop) bead.classList.add(lastDrop.merged ? 'merging' : 'drop');
+        const sym = document.createElement('span'); sym.className = 'sym'; sym.textContent = SYM[run.c] || '';
+        bead.appendChild(sym); // ONE symbol, centred in the run
         stack.appendChild(bead);
       }
       // after a flip the beads fall down into place
       if (opts.fall && tube.length > 0 && tube.length < CAP) {
-        stack.style.setProperty('--fall', (-((CAP - tube.length) * SLOT)) + 'px');
+        stack.style.setProperty('--fall', 'calc(' + (-(CAP - tube.length)) + ' * (var(--cell) + var(--gap)))');
         stack.classList.add('falling');
       }
       urn.appendChild(stack);
@@ -172,9 +176,10 @@
   function pushHistory() { history.push(board.map((t) => t.slice())); }
   function doPour(i, j) {
     const n = E.pourCount(board, i, j, CAP);
+    const merged = board[j].length > 0; // pour requires matching top or empty -> non-empty means it fuses
     pushHistory();
     board = E.pour(board, i, j, CAP);
-    moveCount++; selected = -1; lastDrop = { j, n };
+    moveCount++; selected = -1; lastDrop = { j: j, n: n, merged: merged };
     afterMove();
   }
   function doRotate() {

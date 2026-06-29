@@ -90,9 +90,16 @@ body {
 .bead.lifted { transform: translateY(-13px); filter: drop-shadow(0 7px 8px rgba(0,0,0,.35)); }
 .bead.drop { animation: drop .26s cubic-bezier(.3,1.25,.5,1); }
 @keyframes drop { from { transform: translateY(-32px); } to { transform: translateY(0); } }
-/* a run fusing into one bigger bead: stretch up (incoming) then squash & settle */
-.bead.merging { animation: merge .36s cubic-bezier(.3,.72,.4,1.04); transform-origin: center bottom; }
-@keyframes merge { 0% { transform: scaleY(1.18); } 45% { transform: scaleY(.9); } 72% { transform: scaleY(1.05); } 100% { transform: scaleY(1); } }
+/* a run fusing into one bigger bead — a squash-and-stretch "impact" with a
+   brightness pop, so it clearly reads as beads slamming together into a blob. */
+.bead.merging { animation: merge .44s cubic-bezier(.3,1.2,.5,1) both; transform-origin: center bottom; will-change: transform, filter; z-index: 1; }
+@keyframes merge {
+  0%   { transform: scale(1.18, .78); filter: brightness(1.55); }   /* impact: wide & short, flash */
+  44%  { transform: scale(.9, 1.14);  filter: brightness(1.12); }   /* spring up: narrow & tall */
+  70%  { transform: scale(1.06, .95); filter: brightness(1.02); }   /* settle squash */
+  87%  { transform: scale(.98, 1.02); filter: brightness(1); }
+  100% { transform: scale(1, 1);      filter: brightness(1); }
+}
 
 /* distinct palette (8) — maximised pairwise contrast */
 .c0 { --c: #e6194B; } .c1 { --c: #f58231; } .c2 { --c: #ffe119; } .c3 { --c: #3cb44b; }

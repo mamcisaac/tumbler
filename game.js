@@ -108,40 +108,50 @@
     for (let i = 1; i < t.length; i++) if (t[i] !== t[0]) return false;
     return true;
   }
-  function render() {
+  function render(opts) {
+    opts = opts || {};
     boardEl.innerHTML = '';
+    const R = 11, SLOT = 38 + 6; // cell + gap, matches CSS --cell/--gap
     board.forEach((tube, i) => {
       const urn = document.createElement('div');
       urn.className = 'urn';
+      urn.dataset.i = i;
       if (isDone(tube)) urn.classList.add('done');
       if (i === selected) urn.classList.add('is-selected');
       else if (selected >= 0 && canPour(selected, i)) urn.classList.add('is-target');
       else if (selected < 0 && tube.length) urn.classList.add('is-selectable');
-      urn.dataset.i = i;
+      const stack = document.createElement('div');
+      stack.className = 'stack';
       const runLen = (i === selected) ? topRunLen(tube) : 0;
-      for (let s = 0; s < CAP; s++) {
-        const cell = document.createElement('div');
-        cell.className = 'cell';
-        if (s < tube.length) {
-          if (i === selected && s >= tube.length - runLen) cell.classList.add('lifted');
-          if (lastDrop && lastDrop.j === i && s >= tube.length - lastDrop.n) {
-            const ball = makeBall(tube[s]); ball.classList.add('drop'); cell.appendChild(ball);
-          } else {
-            cell.appendChild(makeBall(tube[s]));
-          }
-        }
-        urn.appendChild(cell);
+      // render top -> bottom (data index high -> low)
+      for (let k = tube.length - 1; k >= 0; k--) {
+        const c = tube[k];
+        const connUp = (k < tube.length - 1) && tube[k + 1] === c;   // same colour above
+        const connDown = (k > 0) && tube[k - 1] === c;               // same colour below
+        const bead = document.createElement('div');
+        bead.className = 'bead c' + c;
+        // glob: square the corners + close the gap where it meets a matching bead
+        bead.style.borderRadius = (connUp ? '2px 2px ' : R + 'px ' + R + 'px ') + (connDown ? '2px 2px' : R + 'px ' + R + 'px');
+        bead.style.marginBottom = (k > 0 && !connDown) ? 'var(--gap)' : '0';
+        const sh = [];
+        if (!connUp) sh.push('inset 0 4px 6px rgba(255,255,255,.28)');
+        if (!connDown) sh.push('inset 0 -7px 10px rgba(0,0,0,.30)');
+        bead.style.boxShadow = sh.join(', ');
+        if (i === selected && k >= tube.length - runLen) bead.classList.add('lifted');
+        if (lastDrop && lastDrop.j === i && k >= tube.length - lastDrop.n) bead.classList.add('drop');
+        const sym = document.createElement('span'); sym.className = 'sym'; sym.textContent = SYM[c] || '';
+        bead.appendChild(sym);
+        stack.appendChild(bead);
       }
+      // after a flip the beads fall down into place
+      if (opts.fall && tube.length > 0 && tube.length < CAP) {
+        stack.style.setProperty('--fall', (-((CAP - tube.length) * SLOT)) + 'px');
+        stack.classList.add('falling');
+      }
+      urn.appendChild(stack);
       boardEl.appendChild(urn);
     });
     lastDrop = null;
-  }
-  function makeBall(c) {
-    const b = document.createElement('div');
-    b.className = 'ball c' + c;
-    const s = document.createElement('span'); s.className = 'sym'; s.textContent = SYM[c] || '';
-    b.appendChild(s);
-    return b;
   }
 
   // ── interaction ──────────────────────────────────────────────────────────
@@ -174,14 +184,15 @@
     const finish = () => {
       pushHistory();
       board = E.rotate(board); moveCount++;
-      render(); // fresh urns (no .flip), reversed data — seamless: 180°+old == 0°+reversed
+      render({ fall: true }); // upright tumblers, reversed data, beads fall into place
       animating = false; updateHud(); checkWin();
     };
     const urns = boardEl.querySelectorAll('.urn');
     if (reduce || !urns.length) { finish(); return; }
-    // Flip each urn in place (180° about its own axis) so urns never reposition.
+    // Phase 1: each symmetric tumbler turns over in place (shape unchanged).
+    // Phase 2 (in finish→render fall): the beads settle to the new bottom.
     urns.forEach((u) => u.classList.add('flip'));
-    setTimeout(finish, 470);
+    setTimeout(finish, 400);
   }
   function undo() {
     if (animating || !history.length || solvedAlready) return;

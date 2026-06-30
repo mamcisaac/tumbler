@@ -136,6 +136,127 @@
         }
     };
 
+    // ============================================================
+    // Global leaderboard summary (launcher-only)
+    // ============================================================
+    // The personal click-count and the games' ?stats= "best score" payloads
+    // are NOT meaningful here — raw scores only drive stars, and leaders are
+    // decided by timing. So the launcher reads the SHARED leaderboard
+    // (Supabase arcade_scores, anon/CORS-open — same project the games use) to
+    // show, per card:
+    //   • plays    — total recorded daily plays across ALL players
+    //   • champion — the #1 handle on that game's most recent daily board
+    //
+    // One request per game. The "play board" is the per-day ranking board,
+    // which differs by game scheme:
+    //   tiered games  → "<date>|total" (sum of times to 3-star all 3 levels)
+    //   single-board  → "<date>|daily"
+    //   tumbler-style → "<date>" (bare)
+    // The filter (dated board, NOT a per-difficulty easy/medium/hard board)
+    // selects exactly that one board family for every game, so the same query
+    // works everywhere. Results cache in localStorage with a short TTL so
+    // reloads paint instantly and don't re-hit the network.
+    var SUPA_URL = 'https://xqhotrcucqcwzzrfwfrf.supabase.co';
+    var SUPA_KEY = 'sb_publishable_h2aOj3WG-yMJFZGlzhEuVA_3Tfaln2Q';
+    var LB_KEY = 'ctt.arcade.lb';
+    var LB_TTL = 5 * 60 * 1000; // 5 min
+    var lbSummaries = {};       // slug -> { plays, champion }
+
+    // QA / migration handles that must never surface as a champion or inflate
+    // the public play count. These rows are also being purged from the DB; this
+    // is a belt-and-suspenders guard so leftover (or future) test data never
+    // shows on a card. Match is exact (lowercased) to avoid catching real
+    // handles that merely contain "test".
+    var TEST_HANDLES = {
+        'tester': 1, 'previewtest': 1, 'testbot': 1, 'testplayer': 1,
+        'migratetest': 1, 'cttmigrate': 1, 'test_otter': 1, 'setup-bot': 1
+    };
+    function isTestHandle(h) {
+        return !!TEST_HANDLES[String(h || '').trim().toLowerCase()];
+    }
+
+    function loadLbCache() {
+        try { return JSON.parse(localStorage.getItem(LB_KEY)) || {}; }
+        catch (_) { return {}; }
+    }
+    function saveLbCache(data) {
+        try { localStorage.setItem(LB_KEY, JSON.stringify(data)); } catch (_) {}
+    }
+    // UTC day-number from a board's date prefix ("2026-6-30|total" → number).
+    function boardDayNum(board) {
+        var d = String(board).split('|')[0].split('-').map(Number);
+        return d[0] ? Math.floor(Date.UTC(d[0], d[1] - 1, d[2]) / 86400000) : -1;
+    }
+    function fetchGameSummary(slug) {
+        // Dated boards only (match ^[0-9]), excluding the per-difficulty boards
+        // so we land on each game's single per-day ranking board.
+        var q = 'game=eq.' + encodeURIComponent(slug) +
+                '&board=match.%5E%5B0-9%5D' +
+                '&board=not.like.*easy&board=not.like.*medium&board=not.like.*hard' +
+                '&select=board,handle,score&order=created_at.desc&limit=80';
+        return fetch(SUPA_URL + '/rest/v1/arcade_scores?' + q, {
+            headers: {
+                apikey: SUPA_KEY,
+                Authorization: 'Bearer ' + SUPA_KEY,
+                Prefer: 'count=exact'
+            }
+        }).then(function (res) {
+            if (!res.ok) return null;
+            // Content-Range "0-79/<total>" carries the full play count even
+            // though we only pulled the most-recent page of rows.
+            var total = 0;
+            var cr = res.headers.get('content-range');
+            if (cr && cr.indexOf('/') > -1) total = parseInt(cr.split('/')[1], 10) || 0;
+            return res.json().then(function (rows) {
+                if (!Array.isArray(rows)) rows = [];
+                // Drop test/QA rows so they neither win nor count. (These rows
+                // are few and recent, so the most-recent page reliably contains
+                // them — close enough for a guard ahead of the DB purge.)
+                var testInPage = rows.filter(function (r) { return isTestHandle(r.handle); }).length;
+                var plays = Math.max(0, total - testInPage);
+                // Champion = lowest composite (most stars, then fastest) on the
+                // most recent dated board, excluding test handles.
+                var latest = -1;
+                rows.forEach(function (r) {
+                    if (isTestHandle(r.handle)) return;
+                    var d = boardDayNum(r.board); if (d > latest) latest = d;
+                });
+                var champion = null, best = Infinity;
+                rows.forEach(function (r) {
+                    if (isTestHandle(r.handle)) return;
+                    if (boardDayNum(r.board) === latest && typeof r.score === 'number' && r.score < best) {
+                        best = r.score; champion = r.handle;
+                    }
+                });
+                return { plays: plays, champion: champion };
+            });
+        }).catch(function () { return null; });
+    }
+    // Refresh every launcher card's summary (parallel), honoring the TTL cache.
+    function refreshSummaries() {
+        var cards = Array.from(document.querySelectorAll('a.game-card'));
+        var slugs = cards.map(function (c) { return slugFromUrl(c.href); })
+                         .filter(function (s, i, a) { return s && a.indexOf(s) === i; });
+        var cache = loadLbCache();
+        var now = Date.now();
+        // Seed from cache so we can paint immediately.
+        slugs.forEach(function (s) { if (cache[s]) lbSummaries[s] = cache[s]; });
+        renderArcadeStats();
+        slugs.forEach(function (slug) {
+            var c = cache[slug];
+            if (c && (now - (c.ts || 0)) < LB_TTL) return; // still fresh
+            fetchGameSummary(slug).then(function (summary) {
+                if (!summary) return;
+                lbSummaries[slug] = summary;
+                summary.ts = now;
+                cache[slug] = summary;
+                saveLbCache(cache);
+                renderArcadeStats();
+                renderStatsModal();
+            });
+        });
+    }
+
     // Canonical arcade keyboard shortcuts — every game inherits these
     // when it vendors arcade.js. Games opt in by giving their help button
     // id="helpButton" (or [data-arcade-help]) and modal close buttons
@@ -212,41 +333,12 @@
     // intentionally NOT shuffled — the launcher's curated grid keeps its
     // designed sequence; the dot + badge surface returning users' history
     // without disrupting the layout.
-    // Format a stats entry's "headline" for a launcher card. Picks the most
-    // interesting field the game sent and presents it humanly. Order tried:
-    //   bestTimeFormatted (pre-formatted "0:42") → bestTime (ms) → bestScore
-    //   → currentStreak / bestStreak → lastResult
-    function formatStatsLine(entry) {
-        if (!entry) return '';
-        if (entry.bestTimeFormatted) return 'Best: ' + entry.bestTimeFormatted;
-        if (typeof entry.bestTime === 'number') {
-            var s = Math.max(0, entry.bestTime) / 1000;
-            var m = Math.floor(s / 60), sec = Math.floor(s - m * 60);
-            return 'Best: ' + m + ':' + String(sec).padStart(2, '0');
-        }
-        if (typeof entry.best === 'number') {
-            // ms heuristic: if it's huge, it's a time. Otherwise a score.
-            if (entry.best > 1000) {
-                var s2 = Math.max(0, entry.best) / 1000;
-                var m2 = Math.floor(s2 / 60), sec2 = Math.floor(s2 - m2 * 60);
-                return 'Best: ' + m2 + ':' + String(sec2).padStart(2, '0');
-            }
-            return 'Best: ' + entry.best;
-        }
-        if (typeof entry.bestScore === 'number') return 'Best: ' + entry.bestScore;
-        if (typeof entry.bestStreak === 'number' && entry.bestStreak > 0)
-            return 'Best streak: ' + entry.bestStreak;
-        if (typeof entry.currentStreak === 'number' && entry.currentStreak > 0)
-            return entry.currentStreak + '-day streak';
-        if (entry.lastResult) return 'Last: ' + entry.lastResult;
-        return '';
-    }
-
     function renderArcadeStats() {
         var stats = loadStats();
         var cards = document.querySelectorAll('a.game-card');
         var slugs = Array.from(cards).map(function (c) { return slugFromUrl(c.href); });
-        // Find the most recent slug that exists in stats
+        // The "last played" dot is still personal — it marks whichever card
+        // THIS visitor last opened (from local click history).
         var mostRecent = null, mostRecentTime = 0;
         slugs.forEach(function (s) {
             var e = stats[s];
@@ -257,7 +349,7 @@
         });
         cards.forEach(function (card, i) {
             var slug = slugs[i];
-            var entry = stats[slug];
+            var summary = lbSummaries[slug];
             // Card titles are <h3> (under the <h2> group headings) — see index.html.
             var h2 = card.querySelector('.card-body h3');
             var body = card.querySelector('.card-body');
@@ -268,7 +360,7 @@
                 dot = document.createElement('span');
                 dot.className = 'card-last-played';
                 dot.setAttribute('aria-hidden', 'true');
-                dot.title = 'Most recently played';
+                dot.title = 'You last played this';
                 h2.insertBefore(dot, h2.firstChild);
             }
             var badge = h2.querySelector('.card-visits');
@@ -278,18 +370,19 @@
                 badge.setAttribute('aria-hidden', 'true');
                 h2.appendChild(badge);
             }
-            // Populate visit badge
-            if (entry && entry.clicks > 0) {
-                badge.textContent = entry.clicks === 1 ? '1 play' : entry.clicks + ' plays';
+            // Visit badge → GLOBAL total plays across all players (not personal).
+            var plays = summary && summary.plays;
+            if (plays > 0) {
+                badge.textContent = plays === 1 ? '1 play' : plays + ' plays';
             } else {
                 badge.textContent = '';
             }
             dot.classList.toggle('is-recent', slug === mostRecent);
 
-            // Rich stats line — sits between the description and the CTA.
+            // Stat line → the reigning champion (#1 on the most recent board).
             var statLine = body.querySelector('.card-stat-line');
-            var statText = formatStatsLine(entry);
-            if (statText) {
+            var champion = summary && summary.champion;
+            if (champion) {
                 if (!statLine) {
                     statLine = document.createElement('span');
                     statLine.className = 'card-stat-line';
@@ -299,7 +392,8 @@
                     if (cta) body.insertBefore(statLine, cta);
                     else body.appendChild(statLine);
                 }
-                statLine.textContent = statText;
+                statLine.textContent = '👑 ' + champion; // 👑
+                statLine.title = 'Reigning champion';
             } else if (statLine) {
                 statLine.remove();
             }
@@ -321,36 +415,23 @@
         var m = statsModalEl();
         if (m) m.hidden = true;
     }
-    function describeStats(entry) {
-        if (!entry) return '<span class="stats-row-detail">Never played</span>';
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    function describeStats(entry, summary) {
         var pills = [];
-        if (typeof entry.best === 'number') {
-            if (entry.best > 1000) {
-                // Heuristic: ms duration → format as time
-                var s = Math.max(0, entry.best) / 1000;
-                var m = Math.floor(s / 60), sec = Math.floor(s - m * 60);
-                pills.push('Best ' + m + ':' + String(sec).padStart(2, '0'));
-            } else {
-                pills.push('Best ' + entry.best);
-            }
-        }
-        if (typeof entry.bestScore === 'number') pills.push('Best ' + entry.bestScore);
-        if (typeof entry.bestTime === 'number') {
-            var s2 = Math.max(0, entry.bestTime) / 1000;
-            var m2 = Math.floor(s2 / 60), sec2 = Math.floor(s2 - m2 * 60);
-            pills.push('Best ' + m2 + ':' + String(sec2).padStart(2, '0'));
-        }
-        if (typeof entry.bestStreak === 'number' && entry.bestStreak > 0)
-            pills.push('Streak ' + entry.bestStreak);
-        if (entry.lastResult) pills.push('Last: ' + entry.lastResult);
-        if (entry.lastPlayed) {
+        if (summary && summary.champion) pills.push('👑 ' + escapeHtml(summary.champion));
+        if (entry && entry.lastPlayed) {
             var ago = Math.floor((Date.now() - entry.lastPlayed) / 60000);
             var when = ago < 1 ? 'just now'
                      : ago < 60 ? ago + ' min ago'
                      : ago < 1440 ? Math.floor(ago / 60) + ' hr ago'
                      : Math.floor(ago / 1440) + ' day' + (Math.floor(ago / 1440) === 1 ? '' : 's') + ' ago';
-            pills.push('Played ' + when);
+            pills.push('You: ' + when);
         }
+        if (!pills.length) return '<span class="stats-row-detail">No plays yet</span>';
         return pills.map(function (p) { return '<span class="stat-pill">' + p + '</span>'; }).join('');
     }
     function renderStatsModal() {
@@ -358,35 +439,39 @@
         if (!body) return;
         var stats = loadStats();
         var cards = Array.from(document.querySelectorAll('a.game-card'));
-        var anyPlayed = cards.some(function (c) {
-            var s = stats[slugFromUrl(c.href)];
-            return s && (s.clicks > 0 || s.lastPlayed > 0);
+        var anyData = cards.some(function (c) {
+            var slug = slugFromUrl(c.href);
+            var sum = lbSummaries[slug];
+            var s = stats[slug];
+            return (sum && sum.plays > 0) || (s && s.lastPlayed > 0);
         });
-        if (!anyPlayed) {
-            body.innerHTML = '<div class="stats-modal-empty">No plays yet — pick a card and dive in.<br>Your records will land here.</div>';
+        if (!anyData) {
+            body.innerHTML = '<div class="stats-modal-empty">No plays yet — pick a card and dive in.<br>The leaderboards will fill in here.</div>';
             return;
         }
-        // Sort: most-recently-played first, then never-played at the bottom.
+        // "plays" is now GLOBAL (all players); sort by most plays, then by
+        // whichever card THIS visitor opened most recently.
         var rows = cards.map(function (card) {
             var slug = slugFromUrl(card.href);
             var entry = stats[slug];
+            var summary = lbSummaries[slug];
             var name = (card.querySelector('.card-body h3') || {}).textContent || slug || 'Unknown';
             // Strip the visit-count badge text + the most-recent dot.
             name = name.replace(/\d+\s*plays?/gi, '').trim();
             var tone = card.getAttribute('data-tone') || '';
             var url = card.href.split('?')[0];
-            var sortKey = entry && entry.lastPlayed ? entry.lastPlayed : 0;
-            var plays = entry && entry.clicks ? entry.clicks : 0;
+            var plays = summary && summary.plays ? summary.plays : 0;
             return {
-                slug: slug, name: name, tone: tone, url: url, entry: entry,
-                sortKey: sortKey, plays: plays
+                slug: slug, name: name, tone: tone, url: url,
+                entry: entry, summary: summary, plays: plays,
+                recent: entry && entry.lastPlayed ? entry.lastPlayed : 0
             };
         });
-        rows.sort(function (a, b) { return b.sortKey - a.sortKey; });
+        rows.sort(function (a, b) { return (b.plays - a.plays) || (b.recent - a.recent); });
         body.innerHTML = rows.map(function (r) {
-            return '<div class="stats-row" data-tone="' + r.tone + '">' +
-                   '<span class="stats-row-name"><a href="' + r.url + '">' + r.name + '</a></span>' +
-                   '<span class="stats-row-detail">' + describeStats(r.entry) + '</span>' +
+            return '<div class="stats-row" data-tone="' + escapeHtml(r.tone) + '">' +
+                   '<span class="stats-row-name"><a href="' + escapeHtml(r.url) + '">' + escapeHtml(r.name) + '</a></span>' +
+                   '<span class="stats-row-detail">' + describeStats(r.entry, r.summary) + '</span>' +
                    '<span class="stats-row-plays">' + r.plays +
                      '<small>' + (r.plays === 1 ? 'play' : 'plays') + '</small>' +
                    '</span>' +
@@ -394,14 +479,18 @@
         }).join('');
     }
     function resetAllStats() {
-        if (!confirm('Reset all arcade play counts and stats? This affects only what the launcher shows; each game keeps its own records.')) return;
+        if (!confirm('Clear your local launcher history (the "last played" marker)? Global play counts and champions come from the shared leaderboard and are unaffected.')) return;
         try { localStorage.removeItem(STATS_KEY); } catch (_) {}
+        try { localStorage.removeItem(LB_KEY); } catch (_) {}
+        lbSummaries = {};
         renderArcadeStats();
         renderStatsModal();
+        refreshSummaries();
     }
 
     function init() {
         renderArcadeStats();
+        refreshSummaries(); // global plays + champions from the shared leaderboard
         document.addEventListener('arcade:statsupdate', renderArcadeStats);
 
         // Stats modal wiring

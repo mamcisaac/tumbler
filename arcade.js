@@ -182,18 +182,24 @@
     function saveLbCache(data) {
         try { localStorage.setItem(LB_KEY, JSON.stringify(data)); } catch (_) {}
     }
-    // UTC day-number from a board's date prefix ("2026-6-30|total" → number).
+    // UTC day-number from a board's date component. The date can sit on either
+    // side of the "|": most games key "<date>|<diff>" (e.g. "2026-6-30|total"),
+    // but some put it last (e.g. tumbler's "d1|2026-6-30"). Find it positionally.
     function boardDayNum(board) {
-        var d = String(board).split('|')[0].split('-').map(Number);
-        return d[0] ? Math.floor(Date.UTC(d[0], d[1] - 1, d[2]) / 86400000) : -1;
+        var m = String(board).match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (!m) return -1;
+        return Math.floor(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000);
     }
     function fetchGameSummary(slug) {
-        // Dated boards only (match ^[0-9]), excluding the per-difficulty boards
-        // so we land on each game's single per-day ranking board.
+        // Boards carrying a calendar date (year "20xx-…" anywhere — covers both
+        // "<date>|<diff>" and "<level>|<date>" layouts), minus the per-difficulty
+        // component boards, so we land on each game's per-day ranking board:
+        // tiered → "<date>|total", single-board → "<date>|daily", tumbler →
+        // "d1|<date>", bare → "<date>". Excludes alltime (no date) and test boards.
         var q = 'game=eq.' + encodeURIComponent(slug) +
-                '&board=match.%5E%5B0-9%5D' +
-                '&board=not.like.*easy&board=not.like.*medium&board=not.like.*hard' +
-                '&select=board,handle,score&order=created_at.desc&limit=80';
+                '&board=match.20%5B0-9%5D%5B0-9%5D-' +
+                '&board=not.ilike.*easy*&board=not.ilike.*medium*&board=not.ilike.*hard*' +
+                '&select=board,handle,score&order=created_at.desc&limit=120';
         return fetch(SUPA_URL + '/rest/v1/arcade_scores?' + q, {
             headers: {
                 apikey: SUPA_KEY,

@@ -109,6 +109,14 @@ function createTutorial(config) {
     i -= 1; render();
   }
 
+  // Let games pause their solve clock while the tutorial covers a started game,
+  // without each game having to observe the modal DOM. All open/close paths
+  // (×, backdrop click, Escape, the final "Start playing" step) route through
+  // open()/close(), so one dispatch in each covers every case.
+  function emit(isOpen) {
+    document.dispatchEvent(new CustomEvent('arcade:tutorial', { detail: { open: isOpen } }));
+  }
+
   function open() {
     if (!steps.length) return;
     build();
@@ -116,8 +124,13 @@ function createTutorial(config) {
     i = 0;
     render();
     backdrop.hidden = false;
+    emit(true);
   }
-  function close() { if (backdrop) backdrop.hidden = true; }
+  function close() {
+    if (!backdrop || backdrop.hidden) return;
+    backdrop.hidden = true;
+    emit(false);
+  }
 
   // Fire once, the first time a game is played.
   function maybeAutoStart() {

@@ -186,10 +186,6 @@
             var u = new URL(a.href, location.href);
             u.searchParams.set('theme', current());
             a.href = u.toString();
-            // Also record the click for the launcher's "recently played" panel.
-            if (a.classList.contains('game-card')) {
-                recordClick(slugFromUrl(a.href));
-            }
         } catch (_) {}
     }
     document.addEventListener('mousedown', rewriteLinkOn, true);
@@ -197,6 +193,15 @@
         if (e.key === 'Enter' || e.key === ' ') rewriteLinkOn(e);
     }, true);
     document.addEventListener('touchstart', rewriteLinkOn, { capture: true, passive: true });
+
+    // Record a play only on a real activation (click), NOT touchstart — touchstart
+    // fires the moment a scroll begins on a card, so scrolling would count as a play.
+    // A click only fires on a genuine tap/activation (the browser cancels it when the
+    // touch turns into a scroll), so scrolling no longer inflates the counter.
+    document.addEventListener('click', function (ev) {
+        var a = ev.target && ev.target.closest && ev.target.closest('a.game-card');
+        if (a && a.href) recordClick(slugFromUrl(a.href));
+    }, true);
 
     // ============================================================
     // Launcher "recently played" enhancements

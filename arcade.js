@@ -206,7 +206,7 @@
         var q = 'game=eq.' + encodeURIComponent(slug) +
                 '&board=match.20%5B0-9%5D%5B0-9%5D-' +
                 '&board=not.ilike.*easy*&board=not.ilike.*medium*&board=not.ilike.*hard*' +
-                '&select=board,handle,score&order=created_at.desc&limit=120';
+                '&select=board,handle,score,created_at&order=created_at.desc&limit=120';
         return fetch(SUPA_URL + '/rest/v1/arcade_scores?' + q, {
             headers: {
                 apikey: SUPA_KEY,
@@ -239,13 +239,22 @@
                     var key = r.handle.trim().toLowerCase();
                     if (!byDay[d]) byDay[d] = {};
                     var cur = byDay[d][key];
-                    if (!cur || r.score < cur.score) byDay[d][key] = { handle: r.handle, score: r.score };
+                    // Keep the handle's best; on equal scores keep the EARLIER
+                    // submission (first to post a score outranks later ties —
+                    // same rule the in-game boards use).
+                    if (!cur || r.score < cur.score ||
+                        (r.score === cur.score && r.created_at < cur.at)) {
+                        byDay[d][key] = { handle: r.handle, score: r.score, at: r.created_at };
+                    }
                 });
                 var days = Object.keys(byDay).map(Number).sort(function (a, b) { return b - a; });
                 var leaders = [], seen = {};
                 for (var i = 0; i < days.length && leaders.length < 3; i++) {
                     var entries = Object.keys(byDay[days[i]]).map(function (k) { return byDay[days[i]][k]; });
-                    entries.sort(function (a, b) { return a.score - b.score; });
+                    entries.sort(function (a, b) {
+                        return (a.score - b.score) ||
+                               (a.at < b.at ? -1 : a.at > b.at ? 1 : 0);
+                    });
                     for (var j = 0; j < entries.length && leaders.length < 3; j++) {
                         var hk = entries[j].handle.trim().toLowerCase();
                         if (seen[hk]) continue;

@@ -49,9 +49,9 @@
   }
 
   // ── daily / practice selection ─────────────────────────────────────────────
-  function utcDateStr(dayNum) {
+  function localDateStr(dayNum) {
     const d = new Date(dayNum * 86400000);
-    return d.getUTCFullYear() + '-' + (d.getUTCMonth() + 1) + '-' + d.getUTCDate();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
   }
   // Namespaced leaderboard board key for a daily date (keeps boards distinct + tidy).
   function dailyBoardKey(dateStr) { return 'd1|' + dateStr; }
@@ -60,7 +60,7 @@
     const dayNum = Math.floor(Date.now() / 86400000);
     const idx = ((dayNum % PUZZLES.puzzles.length) + PUZZLES.puzzles.length) % PUZZLES.puzzles.length;
     const p = PUZZLES.puzzles[idx];
-    puzzleId = utcDateStr(dayNum);
+    puzzleId = localDateStr(dayNum);
     loadPuzzle(p);
     $('puzzleLabel').textContent = 'Daily · ' + puzzleId;
     refreshBestChip();
@@ -334,7 +334,7 @@
     if (which === 'you') { body.innerHTML = renderYou(); return; }
     body.innerHTML = '<div class="lb-status">Loading…</div>';
     const dayNum = Math.floor(Date.now() / 86400000);
-    const rows = await lbFetch(dailyBoardKey(utcDateStr(dayNum)));
+    const rows = await lbFetch(dailyBoardKey(localDateStr(dayNum)));
     if (rows == null) { body.innerHTML = '<div class="lb-status">Leaderboard unavailable.</div>'; return; }
     if (!rows.length) { body.innerHTML = '<div class="lb-status">No times yet today — be the first!</div>'; return; }
     body.innerHTML = lbListHtml(rows, 80);

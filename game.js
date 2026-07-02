@@ -49,15 +49,23 @@
   }
 
   // ── daily / practice selection ─────────────────────────────────────────────
+  // Day number of the player's LOCAL calendar date (flips at local midnight,
+  // not UTC) — the daily puzzle index, label, and board key all derive from it.
+  function localDayNum() {
+    const d = new Date();
+    return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+  }
   function localDateStr(dayNum) {
+    // dayNum encodes a local calendar day as its UTC-midnight instant, so UTC
+    // getters recover exactly that calendar day.
     const d = new Date(dayNum * 86400000);
-    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+    return d.getUTCFullYear() + '-' + (d.getUTCMonth() + 1) + '-' + d.getUTCDate();
   }
   // Namespaced leaderboard board key for a daily date (keeps boards distinct + tidy).
   function dailyBoardKey(dateStr) { return 'd1|' + dateStr; }
   function startDaily() {
     mode = 'daily';
-    const dayNum = Math.floor(Date.now() / 86400000);
+    const dayNum = localDayNum();
     const idx = ((dayNum % PUZZLES.puzzles.length) + PUZZLES.puzzles.length) % PUZZLES.puzzles.length;
     const p = PUZZLES.puzzles[idx];
     puzzleId = localDateStr(dayNum);
@@ -333,8 +341,7 @@
     const body = $('lbBody');
     if (which === 'you') { body.innerHTML = renderYou(); return; }
     body.innerHTML = '<div class="lb-status">Loading…</div>';
-    const dayNum = Math.floor(Date.now() / 86400000);
-    const rows = await lbFetch(dailyBoardKey(localDateStr(dayNum)));
+    const rows = await lbFetch(dailyBoardKey(localDateStr(localDayNum())));
     if (rows == null) { body.innerHTML = '<div class="lb-status">Leaderboard unavailable.</div>'; return; }
     if (!rows.length) { body.innerHTML = '<div class="lb-status">No times yet today — be the first!</div>'; return; }
     body.innerHTML = lbListHtml(rows, 80);

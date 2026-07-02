@@ -160,19 +160,26 @@
     var SUPA_KEY = 'sb_publishable_h2aOj3WG-yMJFZGlzhEuVA_3Tfaln2Q';
     var LB_KEY = 'ctt.arcade.lb';
     var LB_TTL = 5 * 60 * 1000; // 5 min
-    var lbSummaries = {};       // slug -> { plays, champion }
+    var lbSummaries = {};       // slug -> { plays, leaders:[{handle}] }
+    var MEDALS = ['🥇', '🥈', '🥉'];
 
-    // QA / migration handles that must never surface as a champion or inflate
-    // the public play count. These rows are also being purged from the DB; this
-    // is a belt-and-suspenders guard so leftover (or future) test data never
-    // shows on a card. Match is exact (lowercased) to avoid catching real
-    // handles that merely contain "test".
+    // QA / migration handles that must never surface as a leader or inflate the
+    // public play count. These rows are also being purged from the DB; this is a
+    // belt-and-suspenders guard so leftover (or future) test data never shows on
+    // a card. The explicit map covers the known handles; the /test|preview/
+    // fallback catches future QA names. Real handles (incl. auto-generated guest
+    // names like "calm_finch") contain neither substring, so no false positives.
     var TEST_HANDLES = {
-        'tester': 1, 'previewtest': 1, 'testbot': 1, 'testplayer': 1,
-        'migratetest': 1, 'cttmigrate': 1, 'test_otter': 1, 'setup-bot': 1
+        'tester': 1, 'previewtest': 1, 'previewbot': 1, 'testbot': 1, 'testplayer': 1,
+        'migratetest': 1, 'cttmigrate': 1, 'test_otter': 1, 'setup-bot': 1, 'timetest': 1,
+        '__time_test__': 1, '__wc_time_test__': 1
     };
     function isTestHandle(h) {
-        return !!TEST_HANDLES[String(h || '').trim().toLowerCase()];
+        h = String(h || '').trim().toLowerCase();
+        // Explicit map covers every known QA handle; the anchored regex catches
+        // future ones. Anchored at the start ON PURPOSE — a bare /test/ substring
+        // would also hide real superlative handles (Fastest, Greatest, Smartest…).
+        return !!TEST_HANDLES[h] || /^(test|preview)/.test(h);
     }
 
     function loadLbCache() {
@@ -220,21 +227,33 @@
                 // them — close enough for a guard ahead of the DB purge.)
                 var testInPage = rows.filter(function (r) { return isTestHandle(r.handle); }).length;
                 var plays = Math.max(0, total - testInPage);
-                // Champion = lowest composite (most stars, then fastest) on the
-                // most recent dated board, excluding test handles.
-                var latest = -1;
+                // Reigning top 3 UNIQUE players. Group non-test rows by UTC day,
+                // keep each handle's best (lowest = most stars, then fastest)
+                // score per day, then walk days newest→oldest collecting unique
+                // handles until we have 3. So today's leaders rank first; earlier
+                // days only backfill remaining slots when a day is sparse.
+                var byDay = {};
                 rows.forEach(function (r) {
-                    if (isTestHandle(r.handle)) return;
-                    var d = boardDayNum(r.board); if (d > latest) latest = d;
+                    if (isTestHandle(r.handle) || typeof r.score !== 'number') return;
+                    var d = boardDayNum(r.board); if (d < 0) return;
+                    var key = r.handle.trim().toLowerCase();
+                    if (!byDay[d]) byDay[d] = {};
+                    var cur = byDay[d][key];
+                    if (!cur || r.score < cur.score) byDay[d][key] = { handle: r.handle, score: r.score };
                 });
-                var champion = null, best = Infinity;
-                rows.forEach(function (r) {
-                    if (isTestHandle(r.handle)) return;
-                    if (boardDayNum(r.board) === latest && typeof r.score === 'number' && r.score < best) {
-                        best = r.score; champion = r.handle;
+                var days = Object.keys(byDay).map(Number).sort(function (a, b) { return b - a; });
+                var leaders = [], seen = {};
+                for (var i = 0; i < days.length && leaders.length < 3; i++) {
+                    var entries = Object.keys(byDay[days[i]]).map(function (k) { return byDay[days[i]][k]; });
+                    entries.sort(function (a, b) { return a.score - b.score; });
+                    for (var j = 0; j < entries.length && leaders.length < 3; j++) {
+                        var hk = entries[j].handle.trim().toLowerCase();
+                        if (seen[hk]) continue;
+                        seen[hk] = 1;
+                        leaders.push({ handle: entries[j].handle });
                     }
-                });
-                return { plays: plays, champion: champion };
+                }
+                return { plays: plays, leaders: leaders };
             });
         }).catch(function () { return null; });
     }
@@ -250,7 +269,10 @@
         renderArcadeStats();
         slugs.forEach(function (slug) {
             var c = cache[slug];
-            if (c && (now - (c.ts || 0)) < LB_TTL) return; // still fresh
+            // Require `leaders` in the freshness check so a cache written by an
+            // older (champion-shaped) build is treated as stale and refetched
+            // instead of leaving cards blank until the TTL expires.
+            if (c && c.leaders && (now - (c.ts || 0)) < LB_TTL) return; // still fresh
             fetchGameSummary(slug).then(function (summary) {
                 if (!summary) return;
                 lbSummaries[slug] = summary;
@@ -385,10 +407,10 @@
             }
             dot.classList.toggle('is-recent', slug === mostRecent);
 
-            // Stat line → the reigning champion (#1 on the most recent board).
+            // Stat line → the reigning top 3 unique players (medal row).
             var statLine = body.querySelector('.card-stat-line');
-            var champion = summary && summary.champion;
-            if (champion) {
+            var leaders = (summary && summary.leaders) || [];
+            if (leaders.length) {
                 if (!statLine) {
                     statLine = document.createElement('span');
                     statLine.className = 'card-stat-line';
@@ -398,8 +420,14 @@
                     if (cta) body.insertBefore(statLine, cta);
                     else body.appendChild(statLine);
                 }
-                statLine.textContent = '👑 ' + champion; // 👑
-                statLine.title = 'Reigning champion';
+                statLine.textContent = '';
+                leaders.forEach(function (l, idx) {
+                    var s = document.createElement('span');
+                    s.className = 'card-leader';
+                    s.textContent = MEDALS[idx] + ' ' + l.handle; // textContent = injection-safe
+                    statLine.appendChild(s);
+                });
+                statLine.title = 'Reigning top ' + leaders.length;
             } else if (statLine) {
                 statLine.remove();
             }
@@ -428,7 +456,9 @@
     }
     function describeStats(entry, summary) {
         var pills = [];
-        if (summary && summary.champion) pills.push('👑 ' + escapeHtml(summary.champion));
+        ((summary && summary.leaders) || []).forEach(function (l, i) {
+            pills.push(MEDALS[i] + ' ' + escapeHtml(l.handle));
+        });
         if (entry && entry.lastPlayed) {
             var ago = Math.floor((Date.now() - entry.lastPlayed) / 60000);
             var when = ago < 1 ? 'just now'

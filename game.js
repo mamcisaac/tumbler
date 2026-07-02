@@ -264,8 +264,8 @@
       $('improveNote').textContent = (localBest != null && moves > localBest)
         ? `Your best is ${localBest}. Restart and try to match or beat it.`
         : 'Beat it: restart and try to use fewer moves — your best score is the one that counts.';
-      const count = rows ? rows.length : 0;
-      $('lbCount').textContent = count ? `· ${count} time${count === 1 ? '' : 's'} logged` : '';
+      const count = rows ? lbDedupBest(rows).length : 0;
+      $('lbCount').textContent = count ? `· ${count} player${count === 1 ? '' : 's'}` : '';
       $('resultsLb').innerHTML = (rows && rows.length)
         ? lbListHtml(rows, 60)
         : '<div class="lb-status">Be the first to post a time!</div>';
@@ -274,11 +274,21 @@
     openModal('resultsModal');
   }
 
-  // Render ALL completion times, best first. No dedup: a player who finished
-  // several times shows up once per time, so you can see every run.
+  // Standings show each player ONCE, at their best (fewest moves) — the same
+  // best-per-handle view as the launcher's medals. Every attempt is still
+  // logged to the board; the dedup happens on read.
+  function lbDedupBest(rows) {
+    const best = new Map();
+    for (const r of rows || []) {
+      const key = String(r.handle || '').trim().toLowerCase();
+      const cur = best.get(key);
+      if (!cur || r.score < cur.score) best.set(key, r);
+    }
+    return [...best.values()].sort((a, b) => a.score - b.score);
+  }
   function lbListHtml(rows, limit) {
     const me = getHandle();
-    const sorted = rows.slice().sort((a, b) => a.score - b.score).slice(0, limit || 80);
+    const sorted = lbDedupBest(rows).slice(0, limit || 80);
     return sorted.map((r, i) => {
       const rank = i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1);
       const mine = (r.handle || '') === me;

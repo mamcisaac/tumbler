@@ -203,10 +203,17 @@
         // component boards, so we land on each game's per-day ranking board:
         // tiered → "<date>|total", single-board → "<date>|daily", tumbler →
         // "d1|<date>", bare → "<date>". Excludes alltime (no date) and test boards.
+        // Test/QA handles are excluded SERVER-SIDE so the Content-Range play
+        // count is exact — old test rows sit outside the fetched page, so a
+        // client-side subtraction can't see (or subtract) them. The prefix
+        // filters mirror isTestHandle's regex; the not.in list carries the
+        // known mid-string QA handles exactly as stored (case-sensitive).
         var q = 'game=eq.' + encodeURIComponent(slug) +
                 '&board=match.20%5B0-9%5D%5B0-9%5D-' +
                 '&board=not.ilike.*easy*&board=not.ilike.*medium*&board=not.ilike.*hard*' +
-                '&select=board,handle,score,created_at&order=created_at.desc&limit=120';
+                '&handle=not.ilike.test*&handle=not.ilike.preview*' +
+                '&handle=not.in.(MigrateTest,CttMigrate,setup-bot,timetest,__time_test__,__wc_time_test__)' +
+                '&select=board,handle,score,created_at&order=created_at.desc&limit=300';
         return fetch(SUPA_URL + '/rest/v1/arcade_scores?' + q, {
             headers: {
                 apikey: SUPA_KEY,
@@ -225,6 +232,9 @@
                 // Drop test/QA rows so they neither win nor count. (These rows
                 // are few and recent, so the most-recent page reliably contains
                 // them — close enough for a guard ahead of the DB purge.)
+                // The server filters already excluded test rows from the count;
+                // subtract any residue the client-side guard still catches (a
+                // future denylist entry not yet mirrored into the query).
                 var testInPage = rows.filter(function (r) { return isTestHandle(r.handle); }).length;
                 var plays = Math.max(0, total - testInPage);
                 // Reigning top 3 UNIQUE players. Group non-test rows by UTC day,
@@ -404,7 +414,6 @@
             if (!badge) {
                 badge = document.createElement('span');
                 badge.className = 'card-visits';
-                badge.setAttribute('aria-hidden', 'true');
                 h2.appendChild(badge);
             }
             // Visit badge → GLOBAL total plays across all players (not personal).
@@ -423,7 +432,8 @@
                 if (!statLine) {
                     statLine = document.createElement('span');
                     statLine.className = 'card-stat-line';
-                    statLine.setAttribute('aria-hidden', 'true');
+                    // Content, not decoration — screen readers should hear the
+                    // champions (the emoji announce as "1st place medal" etc.).
                     // Insert before the .card-cta if present, else at the end.
                     var cta = body.querySelector('.card-cta');
                     if (cta) body.insertBefore(statLine, cta);

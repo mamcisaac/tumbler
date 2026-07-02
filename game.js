@@ -21,7 +21,8 @@
   }
   async function lbFetch(board, limit = 800) {
     try {
-      const q = new URLSearchParams({ game: 'eq.' + GAME, board: 'eq.' + board, select: 'handle,score,meta', order: 'score.asc', limit: String(limit) });
+      // Ties (same move count) break by who posted first — matches the launcher.
+      const q = new URLSearchParams({ game: 'eq.' + GAME, board: 'eq.' + board, select: 'handle,score,meta', order: 'score.asc,created_at.asc', limit: String(limit) });
       const r = await fetch(`${SB_URL}/rest/v1/${TABLE}?${q}`, { headers: sbHeaders() });
       if (!r.ok) return null;
       return await r.json();

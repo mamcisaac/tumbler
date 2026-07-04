@@ -7,7 +7,7 @@ Pour the top colour from one urn to another to sort each urn into a single colou
 Unlike the rest of the arcade, the daily is **replayable** — your *best* score is the one that counts, so you can keep trimming moves and climb the distribution.
 
 ## Structure (static, no build)
-- `index.html` / `styles.css` — UI, vendored arcade chrome (`tokens.css`, `chrome.css`, `arcade-components.css`, `arcade.js`).
+- `index.html` / `styles.css` — UI, vendored arcade chrome (`tokens.css`, `chrome.css`, `arcade-components.css`, `arcade-theme.js`).
 - `engine.js` — core moves (pour / rotate / solved), shared by the game and the generator.
 - `game.js` — board UI, scoring, the improvement leaderboard (Supabase `arcade_scores`), share.
 - `puzzles.json` — daily puzzle pool (one per day, by UTC date).

@@ -416,13 +416,8 @@
                 badge.className = 'card-visits';
                 h2.appendChild(badge);
             }
-            // Visit badge → GLOBAL total plays across all players (not personal).
-            var plays = summary && summary.plays;
-            if (plays > 0) {
-                badge.textContent = plays === 1 ? '1 play' : plays + ' plays';
-            } else {
-                badge.textContent = '';
-            }
+            // Play counts are intentionally not shown on the cards.
+            badge.textContent = '';
             dot.classList.toggle('is-recent', slug === mostRecent);
 
             // Stat line → the reigning top 3 unique players (medal row).

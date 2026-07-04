@@ -20,7 +20,7 @@
      - <a id="themeToggle"> or [data-arcade-theme-toggle]  → theme toggle
      - <button id="helpButton"> or [data-arcade-help]      → help button
      - [data-arcade-overlay] + [data-arcade-close]          → modal pair
-       (arcade.js binds Escape to click [data-arcade-close])
+       (arcade-theme.js binds Escape to click [data-arcade-close])
      - <a> with class="game-card" or [data-arcade-pass-theme]
        gets ?theme= appended at click time (cross-origin theme)
 

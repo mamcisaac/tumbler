@@ -1,6 +1,15 @@
 /* Tumbler — game styles. Uses shared tokens.css for colour + theming. */
 
-html, body { background: var(--bg); }
+html, body {
+  background: var(--bg);
+  /* Kill iOS double-tap-to-zoom across the whole surface, not just controls.
+     Scoping this to individual elements leaves the gaps between/around the
+     tumblers and the page background zoomable, so a fast pour tap that lands
+     just off a capsule still triggers a partial zoom. `manipulation` keeps
+     pinch-zoom for accessibility. (The viewport's maximum-scale/user-scalable
+     is ignored by iOS Safari, so this rule is what actually enforces it.) */
+  touch-action: manipulation;
+}
 body {
   color: var(--fg);
   margin: 0;
@@ -18,10 +27,9 @@ body {
   gap: clamp(7px, 1.3dvh, 14px);
 }
 
-/* Stop rapid repeat taps (e.g. mashing Undo) from triggering double-tap zoom.
-   touch-action: manipulation kills the double-tap gesture but keeps pinch-zoom. */
+/* Double-tap zoom is killed globally on <html>/<body> above; interactive
+   controls just drop the grey iOS tap flash on top of that. */
 .ctl, .seg-btn, .urn, .icon-button, .btn, .modal-close-x {
-  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 

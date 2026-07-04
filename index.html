@@ -121,15 +121,24 @@
   </div>
 
   <!-- Leaderboard modal -->
-  <div id="lbModal" class="modal-backdrop" hidden>
-    <div class="modal lb-modal-inner" role="dialog" aria-modal="true" aria-labelledby="lbTitle">
-      <button class="modal-close-x" data-close type="button" aria-label="Close">&times;</button>
-      <h2 id="lbTitle">Leaderboard</h2>
-      <div class="seg lb-scope" role="tablist">
-        <button class="seg-btn is-active" id="lbToday" role="tab">Today</button>
-        <button class="seg-btn" id="lbYou" role="tab">You</button>
+  <!-- Canonical shared leaderboard modal (driven by window.ArcadeLeaderboardUI).
+       Fewest moves wins; no All-time tab (move counts aren't comparable across
+       days' different puzzles). -->
+  <div class="modal-backdrop" id="lb-modal" hidden>
+    <div class="modal lb-modal-inner" role="dialog" aria-modal="true" aria-labelledby="lb-title">
+      <button class="modal-close-x" id="lb-close" type="button" aria-label="Close">&times;</button>
+      <h2 id="lb-title">Leaderboard</h2>
+      <p class="lb-blurb">Fewest moves wins. Replay today's puzzle to beat your own best and climb.</p>
+      <div class="lb-scope-tabs" id="lb-scope-tabs" role="group" aria-label="Leaderboard scope">
+        <button class="lb-scope-tab active" data-scope="today" type="button">Today</button>
+        <button class="lb-scope-tab" data-scope="you" type="button">You</button>
       </div>
-      <div id="lbBody" class="lb-body"><div class="lb-status">Loading…</div></div>
+      <div class="lb-nav">
+        <button id="lb-prev" class="lb-nav-btn" type="button" aria-label="Previous day">&#x2039;</button>
+        <span id="lb-day-label">Today</span>
+        <button id="lb-next" class="lb-nav-btn" type="button" aria-label="Next day">&#x203a;</button>
+      </div>
+      <div class="lb-body" id="lb-body"><div class="lb-status">Loading…</div></div>
     </div>
   </div>
 
@@ -167,8 +176,11 @@
   <!-- transient toast (e.g. when move highlights turn off) -->
   <div id="toast" class="toast" role="status" hidden></div>
 
+  <!-- Shared leaderboard data layer + modal UI (classic window globals; must load before game.js). -->
+  <script src="arcade-leaderboard.js?v=1"></script>
+  <script src="arcade-leaderboard-ui.js?v=1"></script>
   <script src="arcade-tutorial.js?v=8"></script>
   <script src="engine.js?v=8"></script>
-  <script src="game.js?v=10"></script>
+  <script src="game.js?v=11"></script>
 </body>
 </html>

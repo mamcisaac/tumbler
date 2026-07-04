@@ -4,29 +4,21 @@
   const E = window.TumblerEngine;
   const SYM = ['◆', '●', '▲', '■', '★', '⬟', '✚', '⬢']; // per-colour glyph (accessibility)
 
-  // ── Supabase leaderboard (same table as the rest of the arcade) ───────────
-  const SB_URL = 'https://xqhotrcucqcwzzrfwfrf.supabase.co';
-  const SB_KEY = 'sb_publishable_h2aOj3WG-yMJFZGlzhEuVA_3Tfaln2Q';
-  const TABLE = 'arcade_scores';
+  // ── Shared arcade leaderboard (one client for the whole arcade) ───────────
+  // Data layer + modal UI are the synced shared modules, loaded as classic
+  // window globals (window.ArcadeLeaderboard / window.ArcadeLeaderboardUI)
+  // before game.js. Tumbler ranks by raw MOVES (fewest wins) on a single daily
+  // board, so the board hides stars and shows a move count. The modal + the
+  // post-win standings both render through the shared factory (created below,
+  // once the board-key helpers are declared).
   const GAME = 'tumbler';
-  const sbHeaders = (extra) => Object.assign({ apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' }, extra || {});
-  async function lbSubmit(board, score, meta) {
-    try {
-      const r = await fetch(`${SB_URL}/rest/v1/${TABLE}`, {
-        method: 'POST', headers: sbHeaders({ Prefer: 'return=minimal' }),
-        body: JSON.stringify({ game: GAME, board, handle: getHandle(), score, meta: meta || null })
-      });
-      return r.ok;
-    } catch (_) { return false; }
-  }
-  async function lbFetch(board, limit = 800) {
-    try {
-      // Ties (same move count) break by who posted first — matches the launcher.
-      const q = new URLSearchParams({ game: 'eq.' + GAME, board: 'eq.' + board, select: 'handle,score,meta', order: 'score.asc,created_at.asc', limit: String(limit) });
-      const r = await fetch(`${SB_URL}/rest/v1/${TABLE}?${q}`, { headers: sbHeaders() });
-      if (!r.ok) return null;
-      return await r.json();
-    } catch (_) { return null; }
+  const LB = window.ArcadeLeaderboard;
+  const { submitScore, reportStats } = LB;
+  // Par-relative stars, recorded to local history only (never shown on the
+  // board) so the shared "You" stats panel has a meaningful quality signal.
+  function starsForMoves(moves, par) {
+    if (!par) return 3;
+    return moves <= par ? 3 : moves <= par + 2 ? 2 : 1;
   }
 
   // ── state ──────────────────────────────────────────────────────────────────
@@ -229,7 +221,9 @@
   function recordHistory(moves) {
     try {
       const h = JSON.parse(localStorage.getItem('ctt.tumbler.history') || '[]');
-      h.push({ date: puzzleId, moves, par, t: Date.now() });
+      // `difficulty`/`stars`/`value` let the shared "You" panel (personalBests +
+      // stats) read this same history — the whole arcade records one shape.
+      h.push({ date: puzzleId, difficulty: 'daily', moves, value: moves, par, stars: starsForMoves(moves, par), t: Date.now() });
       localStorage.setItem('ctt.tumbler.history', JSON.stringify(h.slice(-400)));
     } catch (_) {}
   }
@@ -249,14 +243,14 @@
     refreshBestChip();
 
     if (!getHandle()) { await promptName(); }
-    // Record EVERY completion (not just improvements) so all times show on the board.
-    await lbSubmit(dailyBoardKey(puzzleId), moves, { par });
-
-    const rows = await lbFetch(dailyBoardKey(puzzleId));
-    showResults(moves, getLocalBest(), rows);
+    reportStats(GAME);   // unified launcher-card stat (solves + streak)
+    // Record EVERY completion (not just improvements) so all scores show on the
+    // board; the shared read dedupes each handle to its best (fewest moves).
+    await submitScore({ game: GAME, board: dailyBoardKey(puzzleId), handle: getHandle(), score: moves, meta: { par, value: moves } });
+    showResults(moves, getLocalBest());
   }
 
-  function showResults(moves, localBest, rows) {
+  function showResults(moves, localBest) {
     $('rMoves').textContent = moves;
     const sub = $('resultsSub');
     if (mode === 'practice') sub.innerHTML = `You solved it in <b>${moves}</b> moves. <span style="color:var(--fg-subtle)">(par ${par})</span>`;
@@ -273,39 +267,36 @@
       $('improveNote').textContent = (localBest != null && moves > localBest)
         ? `Your best is ${localBest}. Restart and try to match or beat it.`
         : 'Beat it: restart and try to use fewer moves — your best score is the one that counts.';
-      const count = rows ? lbDedupBest(rows).length : 0;
-      $('lbCount').textContent = count ? `· ${count} player${count === 1 ? '' : 's'}` : '';
-      $('resultsLb').innerHTML = (rows && rows.length)
-        ? lbListHtml(rows, 60)
-        : '<div class="lb-status">Be the first to post a time!</div>';
+      $('lbCount').textContent = '';
+      // Standings render through the shared factory (fewest moves first, deduped
+      // to each player's best) — the same board the modal shows.
+      lbUi.renderBoard($('resultsLb'), dailyBoardKey(puzzleId), getHandle() || null);
     }
     $('shareCardWrap').hidden = true; $('shareCardWrap').innerHTML = '';
     openModal('resultsModal');
   }
 
-  // Standings show each player ONCE, at their best (fewest moves) — the same
-  // best-per-handle view as the launcher's medals. Every attempt is still
-  // logged to the board; the dedup happens on read.
-  function lbDedupBest(rows) {
-    const best = new Map();
-    for (const r of rows || []) {
-      const key = String(r.handle || '').trim().toLowerCase();
-      const cur = best.get(key);
-      if (!cur || r.score < cur.score) best.set(key, r);
-    }
-    return [...best.values()].sort((a, b) => a.score - b.score);
+  // ── Shared leaderboard modal (single daily board; fewest moves wins) ───────
+  // The factory owns the modal (Today/You tabs + day-nav) and the post-win
+  // standings; dedup-to-best-per-handle happens on read inside fetchTop.
+  function lbDayLabel(offset) {
+    if (offset === 0) return 'Today';
+    if (offset === 1) return 'Yesterday';
+    const d = new Date(); d.setDate(d.getDate() - offset);
+    return d.toLocaleDateString('en', { month: 'short', day: 'numeric' });
   }
-  function lbListHtml(rows, limit) {
-    const me = getHandle();
-    const sorted = lbDedupBest(rows).slice(0, limit || 80);
-    return sorted.map((r, i) => {
-      const rank = i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1);
-      const mine = (r.handle || '') === me;
-      return `<div class="lb-row${mine ? ' me' : ''}"><span class="lb-rank">${rank}</span>` +
-        `<span class="lb-name">${escapeHtml(r.handle || 'anon')}</span>` +
-        `<span class="lb-score">${r.score}<small> mv</small></span></div>`;
-    }).join('');
-  }
+  const lbUi = window.ArcadeLeaderboardUI.createLeaderboardModal({
+    gameSlug: GAME,
+    getHandle: () => getHandle() || null,
+    boardKeyForOffset: (offset) => dailyBoardKey(localDateStr(localDayNum() - offset)),
+    dayLabelForOffset: lbDayLabel,
+    showStars: false,
+    rowStat: (r) => `${r.score}<small> mv</small>`,
+    youRow: (best) => `${best.value != null ? best.value : best.moves}<small> mv</small>`,
+    youLabel: 'Best',
+    youHeadSingle: 'Your daily best',
+    bestComparator: (e, cur) => (e.value != null ? e.value : e.moves) < (cur.value != null ? cur.value : cur.moves),
+  });
 
   // ── share ──────────────────────────────────────────────────────────────────
   function shareText(moves) {
@@ -330,35 +321,6 @@
     wrap.innerHTML = `<div class="tiny">${msg}</div>`;
     setTimeout(() => { wrap.hidden = true; }, 1800);
   }
-
-  // ── leaderboard modal ───────────────────────────────────────────────────────
-  async function openLeaderboard() {
-    openModal('lbModal'); setLbScope('today');
-  }
-  async function setLbScope(which) {
-    $('lbToday').classList.toggle('is-active', which === 'today');
-    $('lbYou').classList.toggle('is-active', which === 'you');
-    const body = $('lbBody');
-    if (which === 'you') { body.innerHTML = renderYou(); return; }
-    body.innerHTML = '<div class="lb-status">Loading…</div>';
-    const rows = await lbFetch(dailyBoardKey(localDateStr(localDayNum())));
-    if (rows == null) { body.innerHTML = '<div class="lb-status">Leaderboard unavailable.</div>'; return; }
-    if (!rows.length) { body.innerHTML = '<div class="lb-status">No times yet today — be the first!</div>'; return; }
-    body.innerHTML = lbListHtml(rows, 80);
-  }
-  function renderYou() {
-    let h = [];
-    try { h = JSON.parse(localStorage.getItem('ctt.tumbler.history') || '[]'); } catch (_) {}
-    if (!h.length) return '<div class="lb-status">Solve a daily puzzle to see your history here.</div>';
-    const byDate = {};
-    for (const e of h) { if (!byDate[e.date] || e.moves < byDate[e.date].moves) byDate[e.date] = e; }
-    const rows = Object.values(byDate).sort((a, b) => b.t - a.t).slice(0, 30);
-    const solves = Object.keys(byDate).length;
-    const head = `<div class="pb-row" style="justify-content:flex-start;margin:0 0 10px"><span>${solves} dail${solves === 1 ? 'y' : 'ies'} solved</span></div>`;
-    return head + rows.map(e =>
-      `<div class="lb-row"><span class="lb-name">${e.date}</span><span class="lb-score">${e.moves}<small> mv · par ${e.par}</small></span></div>`).join('');
-  }
-  function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
   // ── name modal ───────────────────────────────────────────────────────────────
   function promptName() {
@@ -457,11 +419,9 @@
     $('restartBtn').addEventListener('click', restart);
     $('modeDaily').addEventListener('click', () => { setMode('daily'); });
     $('modePractice').addEventListener('click', () => { setMode('practice'); });
-    $('lbButton').addEventListener('click', openLeaderboard);
+    lbUi.wire();   // shared factory owns the #lbButton + #lb-modal (Today/You tabs, day-nav)
     $('helpButton').addEventListener('click', () => { $('highlightToggle').checked = effectiveHighlight(); openModal('helpModal'); });
     $('highlightToggle').addEventListener('change', (e) => setHighlight(e.target.checked));
-    $('lbToday').addEventListener('click', () => setLbScope('today'));
-    $('lbYou').addEventListener('click', () => setLbScope('you'));
     $('rShare').addEventListener('click', doShare);
     $('rImprove').addEventListener('click', () => { closeModal('resultsModal'); resetToInitial(); });
     // generic close buttons + backdrop click

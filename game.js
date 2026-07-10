@@ -2,24 +2,18 @@
 (function () {
   'use strict';
   const E = window.TumblerEngine;
-  const SYM = ['◆', '●', '▲', '■', '★', '⬟', '✚', '⬢']; // per-colour glyph (accessibility)
+  const SYM = ['◆', '●', '▲', '■', '✱', '⬟', '✚', '⬢']; // per-colour glyph (accessibility)
 
   // ── Shared arcade leaderboard (one client for the whole arcade) ───────────
   // Data layer + modal UI are the synced shared modules, loaded as classic
   // window globals (window.ArcadeLeaderboard / window.ArcadeLeaderboardUI)
   // before game.js. Tumbler ranks by raw MOVES (fewest wins) on a single daily
-  // board, so the board hides stars and shows a move count. The modal + the
-  // post-win standings both render through the shared factory (created below,
-  // once the board-key helpers are declared).
+  // board, so the board shows a move count. The modal + the post-win standings
+  // both render through the shared factory (created below, once the board-key
+  // helpers are declared).
   const GAME = 'tumbler';
   const LB = window.ArcadeLeaderboard;
   const { submitScore, reportStats } = LB;
-  // Par-relative stars, recorded to local history only (never shown on the
-  // board) so the shared "You" stats panel has a meaningful quality signal.
-  function starsForMoves(moves, par) {
-    if (!par) return 3;
-    return moves <= par ? 3 : moves <= par + 2 ? 2 : 1;
-  }
 
   // ── state ──────────────────────────────────────────────────────────────────
   let PUZZLES = null, CAP = 4;
@@ -41,8 +35,18 @@
   }
 
   // ── daily / practice selection ─────────────────────────────────────────────
-  // Day number of the player's LOCAL calendar date (flips at local midnight,
-  // not UTC) — the daily puzzle index, label, and board key all derive from it.
+  // Day number of a LOCAL calendar date (flips at local midnight, not UTC) —
+  // the daily puzzle index, label, and board key all derive from it. Tumbler
+  // predates the shared Day-N epoch, so it keeps its original days-since-1970
+  // numbering (switching to ArcadeDailySeed.dailyDayNumber would change which
+  // puzzle today's rotation lands on); only the DATE KEY comes from the shared
+  // module, which makes the daily archive-replayable (window.__archiveDateKey).
+  function dayNumFromKey(key) {
+    const p = String(key).split('-').map(Number);
+    return Math.floor(Date.UTC(p[0], p[1] - 1, p[2]) / 86400000);
+  }
+  // Today's day number (never the archive-replay date) — anchors the
+  // leaderboard modal's day-nav offsets.
   function localDayNum() {
     const d = new Date();
     return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
@@ -57,13 +61,31 @@
   function dailyBoardKey(dateStr) { return 'd1|' + dateStr; }
   function startDaily() {
     mode = 'daily';
-    const dayNum = localDayNum();
+    // dailyDateKey() is today's local 'YYYY-M-D' — or the archived day being
+    // replayed. Same key format as the old localDateStr(localDayNum()), so
+    // today's puzzle, best-chip key, and daily board key are all unchanged.
+    const key = window.ArcadeDailySeed.dailyDateKey();
+    const dayNum = dayNumFromKey(key);
     const idx = ((dayNum % PUZZLES.puzzles.length) + PUZZLES.puzzles.length) % PUZZLES.puzzles.length;
     const p = PUZZLES.puzzles[idx];
-    puzzleId = localDateStr(dayNum);
+    puzzleId = key;
     loadPuzzle(p);
     $('puzzleLabel').textContent = 'Daily · ' + puzzleId;
     refreshBestChip();
+  }
+  // Archive replay: seed today's rotation from a past local date. Setting
+  // window.__archiveDateKey makes dailyDateKey() (and thus startDaily's day
+  // number, label, best-chip key + daily board key) resolve to that day; a
+  // manual mode switch clears it (see setMode) to return to today.
+  function loadDailyForDate(dateKey) {
+    window.__archiveDateKey = dateKey;
+    setModeUI('daily');
+    startDaily();
+  }
+  // A day counts as done once its daily has been solved at least once — that's
+  // exactly when we've written a local best for that date key.
+  function isDayDone(dateKey) {
+    try { return localStorage.getItem('ctt.tumbler.best.' + dateKey) != null; } catch (_) { return false; }
   }
   function startPractice() {
     mode = 'practice';
@@ -221,9 +243,10 @@
   function recordHistory(moves) {
     try {
       const h = JSON.parse(localStorage.getItem('ctt.tumbler.history') || '[]');
-      // `difficulty`/`stars`/`value` let the shared "You" panel (personalBests +
-      // stats) read this same history — the whole arcade records one shape.
-      h.push({ date: puzzleId, difficulty: 'daily', moves, value: moves, par, stars: starsForMoves(moves, par), t: Date.now() });
+      // `difficulty`/`value` let the shared "You" panel (personalBests + stats)
+      // read this same history — the whole arcade records one shape. Older
+      // entries also carried `stars`; the shared comparator still reads those.
+      h.push({ date: puzzleId, difficulty: 'daily', moves, value: moves, par, t: Date.now() });
       localStorage.setItem('ctt.tumbler.history', JSON.stringify(h.slice(-400)));
     } catch (_) {}
   }
@@ -250,27 +273,44 @@
     showResults(moves, getLocalBest());
   }
 
+  // Shared arcade results card, mounted inside the existing #resultsModal.
+  // Moves (the ranking metric) lead as the primary stat; "Try to improve" is
+  // the primary action (tumbler's daily is endlessly replayable for a better
+  // best) with Share alongside, exactly as before.
   function showResults(moves, localBest) {
-    $('rMoves').textContent = moves;
-    const sub = $('resultsSub');
-    if (mode === 'practice') sub.innerHTML = `You solved it in <b>${moves}</b> moves. <span style="color:var(--fg-subtle)">(par ${par})</span>`;
-    else sub.innerHTML = `You solved today's puzzle in <b>${moves}</b> moves.`;
-
-    const pbRow = document.querySelector('.pb-row');
-    const lbWrap = $('resultsLbWrap');
-    if (mode === 'practice') {
-      pbRow.style.display = 'none'; lbWrap.style.display = 'none';
-      $('improveNote').textContent = 'Practice puzzles don’t count on the leaderboard — but you can keep trimming moves.';
+    const practice = mode === 'practice';
+    const replay = !practice && !!window.__archiveDateKey;
+    let subHtml, detailHtml;
+    if (practice) {
+      subHtml = `You solved it in <b>${moves}</b> moves. <span style="color:var(--fg-subtle)">(par ${par})</span>`;
+      detailHtml = '<p class="improve-note">Practice puzzles don’t count on the leaderboard — but you can keep trimming moves.</p>';
     } else {
-      pbRow.style.display = 'flex'; lbWrap.style.display = '';
-      $('rBest').textContent = localBest != null ? localBest : moves;
-      $('improveNote').textContent = (localBest != null && moves > localBest)
+      const best = localBest != null ? localBest : moves;
+      const note = (localBest != null && moves > localBest)
         ? `Your best is ${localBest}. Restart and try to match or beat it.`
         : 'Beat it: restart and try to use fewer moves — your best score is the one that counts.';
-      $('lbCount').textContent = '';
+      subHtml = `You solved ${replay ? 'the ' + puzzleId + ' daily' : "today's puzzle"}. Your best: <b>${best}</b>`;
+      detailHtml = `<p class="improve-note">${note}</p>` +
+        `<div class="results-lb-title">${replay ? puzzleId + '’s' : 'Today’s'} leaderboard</div>`;
+    }
+    window.ArcadeResults.renderResults({
+      mount: $('resultsMount'),
+      headline: 'Solved!',
+      statHtml: `${moves}<small> ${moves === 1 ? 'move' : 'moves'}</small>`,
+      subHtml,
+      detailHtml,
+      nextLabel: 'Try to improve',
+      advanceFirst: true,
+      onShare: doShare,
+      onNext: () => { closeModal('resultsModal'); resetToInitial(); },
+    });
+    if (!practice) {
       // Standings render through the shared factory (fewest moves first, deduped
-      // to each player's best) — the same board the modal shows.
-      lbUi.renderBoard($('resultsLb'), dailyBoardKey(puzzleId), getHandle() || null);
+      // to each player's best) into the card's #lb-inline mount — the same board
+      // the modal shows (the replayed day's board during an archive replay).
+      const lbMount = $('resultsMount').querySelector('#lb-inline');
+      lbMount.classList.add('lb-scroll');
+      lbUi.renderBoard(lbMount, dailyBoardKey(puzzleId), getHandle() || null);
     }
     $('shareCardWrap').hidden = true; $('shareCardWrap').innerHTML = '';
     openModal('resultsModal');
@@ -420,10 +460,11 @@
     $('modeDaily').addEventListener('click', () => { setMode('daily'); });
     $('modePractice').addEventListener('click', () => { setMode('practice'); });
     lbUi.wire();   // shared factory owns the #lbButton + #lb-modal (Today/You tabs, day-nav)
+    // Reveal + wire the hidden topbar archive button (past daily puzzles).
+    window.ArcadeArchive.createArchive({ loadDailyForDate, isDayDone }).wire();
     $('helpButton').addEventListener('click', () => { $('highlightToggle').checked = effectiveHighlight(); openModal('helpModal'); });
     $('highlightToggle').addEventListener('change', (e) => setHighlight(e.target.checked));
-    $('rShare').addEventListener('click', doShare);
-    $('rImprove').addEventListener('click', () => { closeModal('resultsModal'); resetToInitial(); });
+    // #rShare / #rImprove are gone — renderResults now owns Share (onShare) + Try-again (onNext).
     // generic close buttons + backdrop click
     document.querySelectorAll('.modal-backdrop').forEach((m) => {
       m.addEventListener('click', (e) => {
@@ -439,11 +480,16 @@
       else if (e.key === 'u' || e.key === 'U') undo();
     });
   }
-  function setMode(m) {
+  function setModeUI(m) {
     $('modeDaily').classList.toggle('is-active', m === 'daily');
     $('modeDaily').setAttribute('aria-selected', m === 'daily');
     $('modePractice').classList.toggle('is-active', m === 'practice');
     $('modePractice').setAttribute('aria-selected', m === 'practice');
+  }
+  function setMode(m) {
+    // A manual mode switch always leaves any archive replay behind (back to today).
+    delete window.__archiveDateKey;
+    setModeUI(m);
     if (m === 'daily') startDaily(); else startPractice();
   }
 

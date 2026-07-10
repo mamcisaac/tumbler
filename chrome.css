@@ -28,6 +28,14 @@
    or layout) so each game can layer its own styling on top.
    ============================================================ */
 
+/* ===== Box model ===== */
+/* Arcade-wide border-box reset. Chrome primitives (e.g. .topbar's
+   width:100% + padding) require it, and every game was hand-rolling its
+   own copy — this is the one canonical version. Game CSS must not
+   re-declare it. Kids' games that vend tokens.css but not chrome.css
+   keep their own box model. */
+*, *::before, *::after { box-sizing: border-box; }
+
 /* ===== Topbar ===== */
 .topbar {
     display: flex;

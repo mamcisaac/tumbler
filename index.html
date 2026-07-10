@@ -7,48 +7,53 @@
   <title>Tumbler — Connect the Thoughts</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="tokens.css?v=9">
-  <link rel="stylesheet" href="chrome.css?v=8">
+  <link rel="stylesheet" href="chrome.css?v=9">
   <link rel="stylesheet" href="arcade-components.css?v=8">
   <link rel="stylesheet" href="styles.css?v=8">
   <script src="arcade-theme.js" defer></script>
 </head>
 <body>
   <!-- arcade:topbar:start -->
-  <header class="topbar">
-    <a class="brand" href="https://connectthethoughts.ca/" aria-label="Connect the Thoughts — arcade home">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 32 32" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="7" cy="8" r="2.5"/><circle cx="25" cy="8" r="2.5"/>
-          <circle cx="7" cy="24" r="2.5"/><circle cx="25" cy="24" r="2.5"/>
-          <path d="M9.5 8 L22.5 8 M9.5 24 L22.5 24 M7 10.5 L7 21.5 M25 10.5 L25 21.5 M9 10 L23 22"/>
-        </svg>
-      </span>
-      <span class="brand-text">Connect the Thoughts</span>
-      <span class="brand-sep" aria-hidden="true">·</span>
-      <span class="brand-game">Tumbler</span>
-    </a>
-    <div class="topbar-actions">
-      <button id="lbButton" class="icon-button" type="button" aria-label="Leaderboard" title="Leaderboard">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-        </svg>
-      </button>
-      <button id="themeToggle" class="icon-button" type="button" aria-label="Toggle dark mode" title="Toggle dark mode" aria-pressed="false" data-arcade-theme-toggle>
-        <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
-        </svg>
-        <svg class="icon-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-        </svg>
-      </button>
-      <button id="helpButton" class="icon-button" type="button" aria-label="How to play" title="How to play" data-arcade-help>
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 1 1 4.4 1.6c-.7.7-1.4 1-1.9 1.6-.3.4-.5 1-.5 1.8"/><circle cx="12" cy="17.5" r="0.6" fill="currentColor"/>
-        </svg>
-      </button>
-    </div>
-  </header>
-  <!-- arcade:topbar:end -->
+<header class="topbar">
+  <a class="brand" href="https://connectthethoughts.ca/" aria-label="Connect the Thoughts — arcade home">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="7" cy="8" r="2.5"/><circle cx="25" cy="8" r="2.5"/>
+        <circle cx="7" cy="24" r="2.5"/><circle cx="25" cy="24" r="2.5"/>
+        <path d="M9.5 8 L22.5 8 M9.5 24 L22.5 24 M7 10.5 L7 21.5 M25 10.5 L25 21.5 M9 10 L23 22"/>
+      </svg>
+    </span>
+    <span class="brand-text">Connect the Thoughts</span>
+    <span class="brand-sep" aria-hidden="true">·</span>
+    <span class="brand-game">Tumbler</span>
+  </a>
+  <div class="topbar-actions">
+    <button id="archive-button" class="icon-button" type="button" aria-label="Past daily puzzles" title="Past daily puzzles" data-arcade-archive hidden>
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+    </button>
+    <button id="lbButton" class="icon-button" type="button" aria-label="Leaderboard" title="Leaderboard" data-arcade-leaderboard>
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+    </button>
+    <button id="themeToggle" class="icon-button" type="button" aria-label="Toggle dark mode" title="Toggle dark mode" aria-pressed="false" data-arcade-theme-toggle>
+      <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+    <button id="helpButton" class="icon-button" type="button" aria-label="How to play" title="How to play" data-arcade-help>
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 1 1 4.4 1.6c-.7.7-1.4 1-1.9 1.6-.3.4-.5 1-.5 1.8"/><circle cx="12" cy="17.5" r="0.6" fill="currentColor"/>
+      </svg>
+    </button>
+  </div>
+</header>
+<!-- arcade:topbar:end -->
 
   <main class="container">
     <div class="mode-row">
@@ -97,25 +102,11 @@
     <p class="hint" id="hint">Tap a tumbler, then tap where to pour. <b>Rotate</b> turns the rack over.</p>
   </main>
 
-  <!-- Results modal -->
+  <!-- Results modal (contents rendered by the shared ArcadeResults card) -->
   <div id="resultsModal" class="modal-backdrop" hidden>
-    <div class="modal results-card" role="dialog" aria-modal="true" aria-labelledby="resultsTitle">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Results">
       <button class="modal-close-x" data-close type="button" aria-label="Close">&times;</button>
-      <div class="results-emoji" aria-hidden="true">🎉</div>
-      <h2 id="resultsTitle" class="results-headline">Solved!</h2>
-      <p class="results-sub" id="resultsSub">You solved it in <b id="rMoves">0</b> moves.</p>
-      <div class="pb-row">
-        <span>Your best: <b id="rBest">–</b></span>
-      </div>
-      <div class="results-lb" id="resultsLbWrap">
-        <div class="results-lb-title">Today's leaderboard <span id="lbCount" class="dist-note"></span></div>
-        <div id="resultsLb" class="lb-body lb-scroll"></div>
-      </div>
-      <p class="improve-note" id="improveNote">Beat it: restart and try to use fewer moves — your best score is what counts.</p>
-      <div class="results-actions">
-        <button id="rShare" class="btn" type="button">Share</button>
-        <button id="rImprove" class="btn btn-primary" type="button">Try to improve</button>
-      </div>
+      <div id="resultsMount"></div>
       <div id="shareCardWrap" class="share-card-wrap" hidden></div>
     </div>
   </div>
@@ -177,10 +168,15 @@
   <div id="toast" class="toast" role="status" hidden></div>
 
   <!-- Shared leaderboard data layer + modal UI (classic window globals; must load before game.js). -->
-  <script src="arcade-leaderboard.js?v=1"></script>
+  <script src="arcade-leaderboard.js?v=2"></script>
   <script src="arcade-leaderboard-ui.js?v=1"></script>
+  <!-- Shared results card (window.ArcadeResults). -->
+  <script src="arcade-results.js?v=1"></script>
+  <!-- Shared archive calendar + daily seeding (archive must load before daily-seed). -->
+  <script src="arcade-archive.js?v=2"></script>
+  <script src="arcade-daily-seed.js?v=1"></script>
   <script src="arcade-tutorial.js?v=8"></script>
   <script src="engine.js?v=8"></script>
-  <script src="game.js?v=11"></script>
+  <script src="game.js?v=13"></script>
 </body>
 </html>

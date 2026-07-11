@@ -141,7 +141,9 @@ body {
 
 /* ── modals (build on shared .modal-backdrop / .modal-card) ──── */
 .results-emoji { font-size: 2.4rem; text-align: center; }
+/* extension of vended .results-headline: margin/alignment tweak only */
 .results-headline { text-align: center; margin: 4px 0 2px; }
+/* extension of vended .results-sub: margin/alignment tweak only */
 .results-sub { text-align: center; color: var(--fg-muted); margin: 0 0 8px; }
 .results-sub b, .pb-row b { color: var(--fg); }
 .pb-row { display: flex; gap: 8px; justify-content: center; align-items: center; color: var(--fg-muted); font-size: .9rem; margin-bottom: 12px; }
@@ -164,7 +166,6 @@ body {
 .results-lb { margin: 6px 0 12px; }
 .results-lb-title { font-size: .82rem; font-weight: 700; color: var(--fg-muted); margin-bottom: 6px; text-align: center; }
 .lb-scroll { max-height: 216px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-.lb-rank { min-width: 26px; }
 
 .share-card-wrap { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .share-card-wrap img { width: 100%; max-width: 340px; border-radius: var(--radius-md); border: 1px solid var(--border); }
@@ -172,19 +173,14 @@ body {
 
 /* leaderboard rows */
 .lb-scope { margin: 4px auto 12px; }
+/* extension of vended .lb-body: min-height tweak only */
 .lb-body { min-height: 120px; }
-.lb-status { text-align: center; color: var(--fg-subtle); padding: 24px 0; }
-.lb-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid var(--border); }
-.lb-row.me { background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 8px; }
-.lb-rank { width: 26px; text-align: right; color: var(--fg-subtle); font-weight: 700; font-variant-numeric: tabular-nums; }
-.lb-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lb-score { font-weight: 800; font-variant-numeric: tabular-nums; }
 .lb-score small { font-weight: 600; color: var(--fg-subtle); }
 
 .help-list { line-height: 1.6; padding-left: 18px; color: var(--fg-muted); }
 .help-list b { color: var(--fg); }
-.lb-input { width: 100%; box-sizing: border-box; margin: 8px 0 4px; padding: 12px 14px; font: inherit;
-  border-radius: var(--radius-md); border: 1px solid var(--border-strong); background: var(--bg); color: var(--fg); }
+/* extension of vended .lb-input: full-width layout for name-modal (input isn't wrapped in .lb-join-row here) */
+.lb-input { width: 100%; box-sizing: border-box; margin: 8px 0 4px; }
 
 @media (max-width: 420px) {
   .ctl span { display: none; }

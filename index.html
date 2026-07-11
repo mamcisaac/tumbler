@@ -1,21 +1,38 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="description" content="A colour-sort puzzle with a twist: flip the whole rack to pour from the bottom. Solve in as few moves as you can — then beat your own score. Part of the Connect the Thoughts arcade.">
   <title>Tumbler — Connect the Thoughts</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="tokens.css?v=9">
-  <link rel="stylesheet" href="chrome.css?v=9">
-  <link rel="stylesheet" href="arcade-components.css?v=8">
+  <link rel="stylesheet" href="tokens.css?v=5fdea8ed">
+  <link rel="stylesheet" href="chrome.css?v=55fe8f85">
+  <link rel="stylesheet" href="arcade-components.css?v=4ef4215c">
   <link rel="stylesheet" href="styles.css?v=8">
-  <script src="arcade-theme.js" defer></script>
+  <!-- arcade:theme-boot:start -->
+<script>
+  // Pre-paint theme bootstrap (sync-managed — edit in hub shared/, never here).
+  // URL param > saved ctt.theme > dark. The ?theme= read is what carries the
+  // theme across origins (hub → game); the localStorage read is what keeps
+  // every game on the SAME theme (all games share one origin).
+  (function () {
+    try {
+      var url = new URLSearchParams(location.search).get('theme');
+      if (url === 'dark' || url === 'light') localStorage.setItem('ctt.theme', url);
+    } catch (_) {}
+    var s = null;
+    try { s = localStorage.getItem('ctt.theme'); } catch (_) {}
+    document.documentElement.setAttribute('data-theme', s || 'dark');
+  })();
+</script>
+<!-- arcade:theme-boot:end -->
+  <script src="arcade-theme.js?v=98232ec8" defer></script>
 </head>
 <body>
   <!-- arcade:topbar:start -->
 <header class="topbar">
-  <a class="brand" href="https://connectthethoughts.ca/" aria-label="Connect the Thoughts — arcade home">
+  <a class="brand" data-arcade-pass-theme href="https://connectthethoughts.ca/" aria-label="Connect the Thoughts — arcade home">
     <span class="brand-mark" aria-hidden="true">
       <svg viewBox="0 0 32 32" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="7" cy="8" r="2.5"/><circle cx="25" cy="8" r="2.5"/>
@@ -57,9 +74,9 @@
 
   <main class="container">
     <div class="mode-row">
-      <div class="seg" role="tablist" aria-label="Mode">
-        <button class="seg-btn is-active" id="modeDaily" role="tab" aria-selected="true">Daily</button>
-        <button class="seg-btn" id="modePractice" role="tab" aria-selected="false">Practice</button>
+      <div class="mode-toggle" role="group" aria-label="Game mode">
+        <button id="modeDaily" class="mode-btn active" type="button" aria-pressed="true">Daily</button>
+        <button id="modePractice" class="mode-btn" type="button" aria-pressed="false">Practice</button>
       </div>
       <div class="puzzle-label" id="puzzleLabel">Daily</div>
     </div>
@@ -101,6 +118,10 @@
     </div>
     <p class="hint" id="hint">Tap a tumbler, then tap where to pour. <b>Rotate</b> turns the rack over.</p>
   </main>
+
+  <footer class="arcade-footer">
+    Part of <a href="https://connectthethoughts.ca/" data-arcade-pass-theme>connectthethoughts.ca</a>
+  </footer>
 
   <!-- Results modal (contents rendered by the shared ArcadeResults card) -->
   <div id="resultsModal" class="modal-backdrop" hidden>
@@ -168,15 +189,15 @@
   <div id="toast" class="toast" role="status" hidden></div>
 
   <!-- Shared leaderboard data layer + modal UI (classic window globals; must load before game.js). -->
-  <script src="arcade-leaderboard.js?v=2"></script>
-  <script src="arcade-leaderboard-ui.js?v=1"></script>
+  <script src="arcade-leaderboard.js?v=b51ccf77"></script>
+  <script src="arcade-leaderboard-ui.js?v=e71cf61e"></script>
   <!-- Shared results card (window.ArcadeResults). -->
-  <script src="arcade-results.js?v=1"></script>
+  <script src="arcade-results.js?v=415f7dd6"></script>
   <!-- Shared archive calendar + daily seeding (archive must load before daily-seed). -->
-  <script src="arcade-archive.js?v=2"></script>
-  <script src="arcade-daily-seed.js?v=1"></script>
-  <script src="arcade-tutorial.js?v=8"></script>
+  <script src="arcade-archive.js?v=45c77968"></script>
+  <script src="arcade-daily-seed.js?v=f8220b98"></script>
+  <script src="arcade-tutorial.js?v=511b18f1"></script>
   <script src="engine.js?v=8"></script>
-  <script src="game.js?v=13"></script>
+  <script src="game.js?v=15"></script>
 </body>
 </html>

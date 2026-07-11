@@ -13,7 +13,7 @@
   // helpers are declared).
   const GAME = 'tumbler';
   const LB = window.ArcadeLeaderboard;
-  const { submitScore, reportStats } = LB;
+  const { submitScore, reportStats, loadSharedHandle, saveSharedHandle } = LB;
 
   // ── state ──────────────────────────────────────────────────────────────────
   let PUZZLES = null, CAP = 4;
@@ -25,9 +25,8 @@
   const boardEl = $('board');
 
   // ── handle ───────────────────────────────────────────────────────────────
-  function getHandle() { try { return localStorage.getItem('ctt.handle') || ''; } catch (_) { return ''; } }
-  function setHandle(h) { try { localStorage.setItem('ctt.handle', cleanHandle(h)); } catch (_) {} }
-  function cleanHandle(s) { return String(s || '').replace(/\s+/g, ' ').trim().slice(0, 24); }
+  function getHandle() { return loadSharedHandle(GAME); }
+  function setHandle(h) { saveSharedHandle(h); }
   function suggestHandle() {
     const a = ['teal', 'amber', 'swift', 'lucky', 'calm', 'bold', 'mellow', 'clever', 'sunny', 'brisk'];
     const b = ['otter', 'finch', 'maple', 'comet', 'pebble', 'willow', 'ember', 'fox', 'heron', 'sage'];
@@ -289,7 +288,8 @@
       const note = (localBest != null && moves > localBest)
         ? `Your best is ${localBest}. Restart and try to match or beat it.`
         : 'Beat it: restart and try to use fewer moves — your best score is the one that counts.';
-      subHtml = `You solved ${replay ? 'the ' + puzzleId + ' daily' : "today's puzzle"}. Your best: <b>${best}</b>`;
+      subHtml = `You solved ${replay ? 'the ' + puzzleId + ' daily' : "today's puzzle"}. Your best: <b>${best}</b>` +
+        window.ArcadeLeaderboard.streakLineHtml(GAME);
       detailHtml = `<p class="improve-note">${note}</p>` +
         `<div class="results-lb-title">${replay ? puzzleId + '’s' : 'Today’s'} leaderboard</div>`;
     }
@@ -330,12 +330,12 @@
     getHandle: () => getHandle() || null,
     boardKeyForOffset: (offset) => dailyBoardKey(localDateStr(localDayNum() - offset)),
     dayLabelForOffset: lbDayLabel,
-    showStars: false,
     rowStat: (r) => `${r.score}<small> mv</small>`,
     youRow: (best) => `${best.value != null ? best.value : best.moves}<small> mv</small>`,
     youLabel: 'Best',
     youHeadSingle: 'Your daily best',
     bestComparator: (e, cur) => (e.value != null ? e.value : e.moves) < (cur.value != null ? cur.value : cur.moves),
+    youStats: { metricLabel: 'Moves', buckets: [{ label: '≤10', max: 10 }, { label: '11–15', max: 15 }, { label: '16–25', max: 25 }, { label: '26+' }] },
   });
 
   // ── share ──────────────────────────────────────────────────────────────────
@@ -343,7 +343,7 @@
     const lb = getLocalBest();
     let s = `Tumbler — ${mode === 'daily' ? 'Daily ' + puzzleId : 'Practice'}\nSolved in ${moves} moves (par ${par})`;
     if (mode === 'daily' && lb != null && lb < moves) s += `\nMy best: ${lb}`;
-    s += `\nhttps://connectthethoughts.ca/tumbler`;
+    s += `\nconnectthethoughts.ca/tumbler`;
     return s;
   }
   async function doShare() {
@@ -481,10 +481,10 @@
     });
   }
   function setModeUI(m) {
-    $('modeDaily').classList.toggle('is-active', m === 'daily');
-    $('modeDaily').setAttribute('aria-selected', m === 'daily');
-    $('modePractice').classList.toggle('is-active', m === 'practice');
-    $('modePractice').setAttribute('aria-selected', m === 'practice');
+    $('modeDaily').classList.toggle('active', m === 'daily');
+    $('modeDaily').setAttribute('aria-pressed', m === 'daily');
+    $('modePractice').classList.toggle('active', m === 'practice');
+    $('modePractice').setAttribute('aria-pressed', m === 'practice');
   }
   function setMode(m) {
     // A manual mode switch always leaves any archive replay behind (back to today).

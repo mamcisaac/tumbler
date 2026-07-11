@@ -25,16 +25,6 @@ body {
 
 /* ── mode + label ───────────────────────────────────────────── */
 .mode-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.seg {
-  display: inline-flex; background: var(--bg-elev); border: 1px solid var(--border);
-  border-radius: 999px; padding: 3px; gap: 2px;
-}
-.seg-btn {
-  appearance: none; border: 0; background: transparent; color: var(--fg-muted);
-  font: inherit; font-weight: 600; font-size: .9rem; padding: 6px 16px; border-radius: 999px;
-  cursor: pointer; transition: background .15s, color .15s;
-}
-.seg-btn.is-active { background: var(--accent); color: var(--on-accent); }
 .puzzle-label { color: var(--fg-subtle); font-size: .85rem; font-weight: 600; }
 
 /* ── HUD ─────────────────────────────────────────────────────── */

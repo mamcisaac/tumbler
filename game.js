@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const E = window.TumblerEngine;
-  const SYM = ['◆', '●', '▲', '■', '✱', '⬟', '✚', '⬢']; // per-colour glyph (accessibility)
+  const SYM = ['◆', '●', '▲', '■', '★', '⬟', '✚', '⬢']; // per-colour glyph (accessibility)
 
   // ── Shared arcade leaderboard (one client for the whole arcade) ───────────
   // Data layer + modal UI are the synced shared modules, loaded as classic

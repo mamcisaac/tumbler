@@ -48,10 +48,20 @@ body {
 
 /* ── board / tumblers ────────────────────────────────────────── */
 .board {
-  --cell: clamp(24px, 4.4dvh, 38px); --gap: clamp(4px, .8dvh, 6px);
+  /* --cell sizes the bead and --gap the space between stacked beads, so together they
+     set the bead PITCH down a tube. Both MUST be whole px, or each bead lands on a
+     different fractional pixel and its centred glyph rounds a different way — the glyphs
+     then look jittered up/down and left/right from bead to bead. round(…,1px) snaps them
+     to the device grid so beads share a raster phase (the plain clamp before each is the
+     fallback for engines without round()). Same reasoning for the board's row gap. */
+  --cell: clamp(24px, 4.4dvh, 38px);
+  --cell: round(clamp(24px, 4.4dvh, 38px), 1px);
+  --gap: clamp(4px, .8dvh, 6px);
+  --gap: round(clamp(4px, .8dvh, 6px), 1px);
   --cols: 5;
   display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end;
   gap: clamp(8px, 1.7dvh, 15px) 9px;
+  gap: round(clamp(8px, 1.7dvh, 15px), 1px) 9px;
   /* Width is capped at exactly --cols tumblers, so a tier's 2·N tubes wrap into
      two centred rows of N: easy 6→3+3, medium 8→4+4, hard 10→5+5. */
   max-width: calc(var(--cols) * (var(--cell) + 13px) + (var(--cols) - 1) * 9px + 2px);
@@ -91,14 +101,20 @@ body {
   position: relative;
   transition: transform .14s ease;
 }
-/* Glyph is an inline SVG shape (game.js), geometry-centred in its viewBox. It's
-   centred in the bead with the absolute + inset:0 + margin:auto technique — with a
-   fixed width/height this places it dead-centre on EVERY engine (flex/grid centring
-   of SVG mis-landed on iOS Safari — the "too far left" bug). The svg fills the .sym
-   box, so its own geometry-centred shape lands exactly on the bead centre. */
+/* Glyph is an inline SVG shape (game.js), geometry-centred in its viewBox. The SVG
+   fills the WHOLE bead box (inset:0, 100%×100%) and the shape is centred *inside* it by
+   the viewBox — NOT by centring a separately-sized element. A separate box centred with
+   margin:auto rounds its sub-pixel position in a phase independent of the bead's own
+   fractional position; since every bead sits at a different fractional pixel, that
+   leftover half-pixel landed a different way per bead — the glyph looked jittered.
+   Painting the glyph in the bead's OWN box makes them share one rasterisation phase, so
+   the shape is symmetric within every bead. The remaining axis of slack (the bead is a
+   few px taller than wide, so the square glyph letterboxes vertically) is neutralised by
+   pixel-aligning --cell above: with an integer bead pitch every bead falls on the same
+   sub-pixel phase, so that slack rounds identically everywhere instead of drifting. Glob
+   growth is baked into the viewBox in game.js — no CSS transform to round the position. */
 .bead .sym {
-  position: absolute; inset: 0; margin: auto;
-  width: calc(1.1rem * var(--gs, 1)); height: calc(1.1rem * var(--gs, 1));
+  position: absolute; inset: 0;
   line-height: 0; user-select: none;
 }
 .bead .sym svg { width: 100%; height: 100%; display: block; }

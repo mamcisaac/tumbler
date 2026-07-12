@@ -7,10 +7,10 @@
   // ── Shared arcade leaderboard (one client for the whole arcade) ───────────
   // Data layer + modal UI are the synced shared modules, loaded as classic
   // window globals (window.ArcadeLeaderboard / window.ArcadeLeaderboardUI)
-  // before game.js. Tumbler ranks by raw MOVES (fewest wins) on a single daily
-  // board, so the board shows a move count. The modal + the post-win standings
-  // both render through the shared factory (created below, once the board-key
-  // helpers are declared).
+  // before game.js. Tumbler ranks by raw MOVES (fewest wins), one board per
+  // difficulty per day plus a combined Total board. The modal (Easy/Medium/
+  // Hard/Total tabs) + the post-win standings both render through the shared
+  // factory (created below, once the board-key helpers are declared).
   const GAME = 'tumbler';
   const LB = window.ArcadeLeaderboard;
   const { submitScore, reportStats, loadSharedHandle, saveSharedHandle } = LB;
@@ -24,6 +24,9 @@
   // chains to the next arcade game via the shared results card).
   const DIFFS = ['easy', 'medium', 'hard'];
   const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+  // Leaderboard labels include the arcade-standard aggregate 'Total' row/tab
+  // (the shared factory's youOrder is [...difficulties, 'total']).
+  const LB_DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard', total: 'Total' };
   const DIFF_KEY = 'ctt.tumbler.difficulty';
 
   // ── state ──────────────────────────────────────────────────────────────────
@@ -72,17 +75,20 @@
   // comparable to the old single-board scores under `d1|`).
   function dailyBoardKey(diff, dateStr) { return 'd2|' + diff + '|' + dateStr; }
   function tierPool(diff) { return PUZZLES.tiers[diff].puzzles; }
+  // Which board a tier serves for a given date key (defaults to the active
+  // daily date, honouring any archive replay). One date drives all three tiers.
+  function boardForTierToday(diff, id) {
+    const dayNum = dayNumFromKey(id || puzzleId || window.ArcadeDailySeed.dailyDateKey());
+    const pool = tierPool(diff);
+    return pool[((dayNum % pool.length) + pool.length) % pool.length];
+  }
   function startDaily() {
     mode = 'daily';
     // dailyDateKey() is today's local 'YYYY-M-D' — or the archived day being
     // replayed. The same date drives all three tiers; the difficulty selects
     // which tier's pool the day-number indexes into.
-    const key = window.ArcadeDailySeed.dailyDateKey();
-    const dayNum = dayNumFromKey(key);
-    const pool = tierPool(difficulty);
-    const idx = ((dayNum % pool.length) + pool.length) % pool.length;
-    puzzleId = key;
-    loadPuzzle(PUZZLES.tiers[difficulty], pool[idx]);
+    puzzleId = window.ArcadeDailySeed.dailyDateKey();
+    loadPuzzle(PUZZLES.tiers[difficulty], boardForTierToday(difficulty));
     $('puzzleLabel').textContent = 'Daily · ' + puzzleId;
     refreshBestChip();
   }
@@ -256,15 +262,19 @@
     if (mode === 'daily' && b) { $('bestVal').textContent = b; $('bestChip').hidden = false; }
     else $('bestChip').hidden = true;
   }
-  // First tier in easy→medium→hard order (wrapping past `current`) with no local
-  // best today, or null when all three are solved — drives results progression.
-  function nextUnsolvedTier(current) {
-    const ci = DIFFS.indexOf(current);
-    for (let k = 1; k <= DIFFS.length; k++) {
-      const t = DIFFS[(ci + k) % DIFFS.length];
-      if (getLocalBest(t) == null) return t;
-    }
-    return null;
+  // Standard arcade run order: solving a tier advances to the next; the last
+  // tier (hard) completes the daily. Matches the shared results card's
+  // advanceFirst / dailyComplete contract (as in mosaic et al.).
+  function nextTier(current) {
+    const i = DIFFS.indexOf(current);
+    return (i >= 0 && i < DIFFS.length - 1) ? DIFFS[i + 1] : null;
+  }
+  // The day's combined score — sum of the player's best across all three tiers,
+  // or null until every tier is cleared. Powers the arcade-standard "Total"
+  // leaderboard row/tab.
+  function dayTotal(id) {
+    const bests = DIFFS.map((d) => getLocalBest(d, id));
+    return bests.some((b) => b == null) ? null : bests.reduce((a, b) => a + b, 0);
   }
   function recordHistory(moves) {
     try {
@@ -296,7 +306,20 @@
     // Record EVERY completion (not just improvements) so all scores show on the
     // board; the shared read dedupes each handle to its best (fewest moves).
     await submitScore({ game: GAME, board: dailyBoardKey(difficulty, puzzleId), handle: getHandle(), score: moves, meta: { par, value: moves, difficulty } });
+    await submitTotalIfComplete();
     showResults(moves, getLocalBest());
+  }
+
+  // Once all three tiers are cleared for the day, submit the combined total
+  // (sum of the player's per-tier bests) to the shared "Total" leaderboard
+  // board, so the modal's Total tab ranks players by their whole-day run.
+  // Re-runs on any later improvement, so the posted total tracks current bests.
+  // Deliberately NOT written to local history: a combined total isn't a "solve",
+  // so it must not inflate the Solves stat or the per-board moves distribution.
+  async function submitTotalIfComplete() {
+    const total = dayTotal();
+    if (total == null) return;
+    await submitScore({ game: GAME, board: dailyBoardKey('total', puzzleId), handle: getHandle(), score: total, meta: { value: total, difficulty: 'total' } });
   }
 
   // Shared arcade results card, mounted inside the existing #resultsModal.
@@ -307,11 +330,11 @@
     const practice = mode === 'practice';
     const replay = !practice && !!window.__archiveDateKey;
     const progress = !practice && !replay;          // live daily → tier progression
-    // On the live daily, advancing to the next unsolved tier is the primary
-    // action; clearing all three completes the daily and chains to the next
+    // Standard arcade run: advancing to the next tier is the primary action;
+    // clearing the last tier (hard) completes the daily and chains to the next
     // arcade game (dailyComplete). Practice/replay just offer replay + share.
-    const nextTier = progress ? nextUnsolvedTier(difficulty) : null;
-    const allDone = progress && nextTier === null;
+    const next = progress ? nextTier(difficulty) : null;
+    const lastTier = progress && next === null;     // hard just solved → run complete
     let subHtml, detailHtml;
     if (practice) {
       subHtml = `You solved the <b>${DIFF_LABEL[difficulty]}</b> board in <b>${moves}</b> moves. <span style="color:var(--fg-subtle)">(par ${par})</span>`;
@@ -321,8 +344,8 @@
       const beatNote = (localBest != null && moves > localBest)
         ? `Your best is ${localBest}. Try again to match or beat it.`
         : 'Try again to use fewer moves — your best score is the one that counts.';
-      const advNote = nextTier ? ` Next up: <b>${DIFF_LABEL[nextTier]}</b>.`
-        : (allDone ? ' You’ve cleared all three tiers today. 🎉' : '');
+      const advNote = next ? ` Next up: <b>${DIFF_LABEL[next]}</b>.`
+        : (lastTier ? ' That’s all three tiers — nice run! 🎉' : '');
       subHtml = `You solved the <b>${DIFF_LABEL[difficulty]}</b> ${replay ? puzzleId + ' board' : 'daily'}. Your best: <b>${best}</b>.${advNote}` +
         window.ArcadeLeaderboard.streakLineHtml(GAME);
       detailHtml = `<p class="improve-note">${beatNote}</p>` +
@@ -334,16 +357,16 @@
       statHtml: `${moves}<small> ${moves === 1 ? 'move' : 'moves'}</small>`,
       subHtml,
       detailHtml,
-      // Clearing every tier finishes today's Tumbler → chain to the next daily.
-      dailyComplete: allDone,
+      // Clearing the last tier finishes today's Tumbler → chain to the next daily.
+      dailyComplete: lastTier,
       gameSlug: GAME,
       // While a tier is left, advancing to it is the primary CTA; "Try again"
       // is always available (the daily is replayable — best score counts).
-      nextLabel: nextTier ? DIFF_LABEL[nextTier] + ' →' : null,
-      advanceFirst: !!nextTier,
+      nextLabel: next ? DIFF_LABEL[next] + ' →' : null,
+      advanceFirst: !!next,
       againLabel: 'Try again',
       onShare: doShare,
-      onNext: nextTier ? () => { closeModal('resultsModal'); setDifficulty(nextTier); } : undefined,
+      onNext: next ? () => { closeModal('resultsModal'); setDifficulty(next); } : undefined,
       onAgain: () => { closeModal('resultsModal'); resetToInitial(); },
     });
     if (!practice) {
@@ -370,7 +393,7 @@
   const lbUi = window.ArcadeLeaderboardUI.createLeaderboardModal({
     gameSlug: GAME,
     difficulties: DIFFS,
-    diffLabel: DIFF_LABEL,
+    diffLabel: LB_DIFF_LABEL,
     getDifficulty: () => difficulty,
     getHandle: () => getHandle() || null,
     boardKeyForOffset: (offset, diff) => dailyBoardKey(diff, localDateStr(localDayNum() - offset)),

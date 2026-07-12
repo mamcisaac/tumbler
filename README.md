@@ -16,7 +16,7 @@ Every day ships three boards, matching the arcade's easy→medium→hard run. Ea
 | Medium | 7 + 1 empty | 8 | 2×4 | ~23 |
 | Hard | 9 + 1 empty | 10 | 2×5 | ~31 |
 
-Solving a tier advances to the next; clearing all three completes the daily and chains to the next arcade game. Each tier keeps its own replayable best and its own leaderboard board. Because the rack starts full, **Rotate is required on every board** — the generator only keeps boards proven unsolvable without it (hard requires ≥2 rotations). The design study behind these parameters is in [`empty-tube-study.md`](./empty-tube-study.md).
+Solving a tier advances to the next; clearing all three completes the daily and chains to the next arcade game. Each tier keeps its own replayable best and leaderboard board, and the leaderboard also has a **Total** tab that ranks players by their combined moves across all three tiers (submitted once the day's run is complete). Because the rack starts full, **Rotate is required on every board** — the generator only keeps boards proven unsolvable without it (hard requires ≥2 rotations). The design study behind these parameters is in [`empty-tube-study.md`](./empty-tube-study.md).
 
 ## Structure (static, no build)
 - `index.html` / `styles.css` — UI, vendored arcade chrome (`tokens.css`, `chrome.css`, `arcade-components.css`, `arcade-theme.js`).

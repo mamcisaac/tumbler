@@ -2,24 +2,26 @@
  * empty tumbler (i.e. the other 8 start completely full), laid out as two
  * rows of 4 + the empty one centred to the right?
  *
- *   node empty-tube-study.mjs [samples] [colors]
+ *   node empty-tube-study.mjs [samples] [colors] [tubes]
  *
  * Compares the CURRENT regime (reverse-scramble spreads the slack slots
  * across the rack — 92% of the shipped pool starts with zero empty tubes)
  * against the PROPOSED regime (uniform deal into full colour tubes + empty
- * tubes). The rack is always 9 tubes, so colors=7 leaves 8 free slots; that
- * variant also gets a third regime: one guaranteed-empty side tube with the
- * remaining slack spread across the 8 grid tubes. Written up in
- * empty-tube-study.md.
+ * tubes). The rack defaults to max(9, colors+1) tubes, so colors=7 on the
+ * 9-tube rack leaves 8 free slots — that variant also gets a third regime:
+ * one guaranteed-empty side tube with the remaining slack spread across the
+ * grid tubes. colors=9 gives a 10-tube rack (2x4+1 grows to 2x5 or 2x4+2).
+ * Written up in empty-tube-study.md.
  */
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const E = require('./engine.js');
 const S = require('./solver.js');
 
-const K = 4, SCRAMBLE = 52, NTUBES = 9;
+const K = 4, SCRAMBLE = 52;
 const N = +(process.argv[2] || 120);
 const NCOLORS = +(process.argv[3] || 8);
+const NTUBES = +(process.argv[4] || Math.max(9, NCOLORS + 1));
 const NEMPTY = NTUBES - NCOLORS;
 
 function mulberry32(a) {

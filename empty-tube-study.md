@@ -120,6 +120,31 @@ forgiveness back. Random wins take ~1.6–1.7× par in both regimes (≈36–45 
 so the drop is purely in how often aimless play gets through, not in how long the
 wins take.
 
+## Follow-up: 9 colours + 1 empty (10-tube rack)
+
+Measured (`node empty-tube-study.mjs 150 9` — 36 beads, same 4 free slots, rack
+grows to 2×5 or 2×4+2). Growing the rack does NOT restore forgiveness — it goes
+the other way: the same one-tube buffer now has to service nine colours instead
+of eight.
+
+| Metric | 8 col + 1 empty (9 tubes) | 9 col + 1 empty (10 tubes) |
+|---|---|---|
+| Optimal par (mean) | 26.4 | 29.6 |
+| W=2 par (mean) | 26.5 | 30.5 |
+| Boards in the 28–40 par window | ~33% | **90%** |
+| Provably unsolvable without Rotate | ~97% | ~99% |
+| Mean rotates per solution | 3.3 | 4.2 |
+| Random-play solve rate | ~12% | **6%** |
+| …for its lowest-par bucket | ~19% (par ≤22) | ~11% (par ≤26) |
+
+Forgiveness is governed by the slack-to-colours ratio, not rack size: 4 free
+slots over 9 colours is tighter still, and even the easiest 9-colour boards are
+only as forgiving as *average* 8-colour ones. Random wins still take ~1.5–1.7×
+par. The upside, if a harder flagship daily is ever wanted: 9+1 lands 90% of raw
+deals in the current par window (generation nearly filter-free), pars are
+~4 moves longer, and rotation is used more per solve. As a like-for-like
+replacement for today's difficulty, though, 8+1 remains the right shape.
+
 ## Recommendation
 
 Feasible and attractive: a cleaner, more legible opening, a stronger showcase for

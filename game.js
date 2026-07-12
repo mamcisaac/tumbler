@@ -9,13 +9,14 @@
   // each centred by GEOMETRY in a 24×24 box: pixel-perfect centring on every platform
   // (text glyphs sat low and shifted with the system font) and no emoji fallback.
   //   ● red · ▲ orange · ■ gold · ◆ green · ★ spring · ✚ cyan · ⬢ blue · ⬟ purple · ✦ orchid
-  // Shapes are tuned for consistent OPTICAL weight — a compact square reads smaller
-  // than a diamond of the same bounding box, so solids (triangle/square/pentagon) are
-  // grown and spread shapes (diamond) eased until all nine look the same size.
+  // Shapes are tuned for consistent OPTICAL weight — bounding box is a poor guide, so
+  // sizes are set by eye against the circle: the thin/pointed shapes (triangle,
+  // pentagon, spark) are grown, the heavy filled square is eased down, until all nine
+  // read the same size.
   const SHAPE = [
     '<circle cx="12" cy="12" r="7.3"/>',
     '<polygon points="12,3.2 20.66,18.2 3.34,18.2"/>',
-    '<rect x="3.7" y="3.7" width="16.6" height="16.6" rx="2"/>',
+    '<rect x="5" y="5" width="14" height="14" rx="1.8"/>',
     '<polygon points="12,3 21,12 12,21 3,12"/>',
     '<polygon points="12,2.7 14.29,8.84 20.84,9.13 15.71,13.21 17.47,19.52 12,15.9 6.53,19.52 8.29,13.21 3.16,9.13 9.71,8.84"/>',
     '<path d="M9.7 3.7 h4.6 v6.0 h6.0 v4.6 h-6.0 v6.0 h-4.6 v-6.0 h-6.0 v-4.6 h6.0 z"/>',

@@ -8,8 +8,24 @@
   // simple → complex so players learn "circle = ruby" not "random icon". U+FE0E
   // forces TEXT rendering so none falls back to a coloured emoji (the old '✳'
   // rendered as a green emoji on some platforms, mismatching its tile).
-  //   ruby ● · amber ▲ · gold ■ · emerald ◆ · teal ★ · sapphire ✚ · violet ⬢ · rose ⬟ · slate ✦
+  //   ruby ● · amber ▲ · gold ■ · emerald ◆ · teal ★ · sapphire ✚ · violet ⬢ · rose ⬟ · brown ✦
   const SYM = ['●', '▲', '■', '◆', '★', '✚', '⬢', '⬟', '✦'].map((g) => g + '︎');
+
+  // Per-tier colour SELECTION — difficulty reflects perceptual similarity, not
+  // just how many colours are on the board. Easy uses only the "primary mental
+  // categories" (maximum pairwise separation, robust to poor lighting / colour-
+  // vision differences); harder tiers fold in the subtle neighbours the glyphs
+  // keep fair: medium adds ruby↔amber, amber↔gold and violet↔rose; hard adds the
+  // green/blue-green boundary (emerald·teal·sapphire) plus brown. Each entry maps
+  // a puzzle's stored logical colour k → an index into the master .c0–.c8 palette
+  // (styles.css) and SYM glyphs. Solve logic stays on the dense logical indices;
+  // this only changes what's drawn, so the same board data serves every tier.
+  const PALETTE = {
+    easy:   [0, 2, 3, 5, 6],                 // ruby · gold · emerald · sapphire · violet
+    medium: [0, 1, 2, 3, 5, 6, 7],           // + amber · rose
+    hard:   [0, 1, 2, 3, 4, 5, 6, 7, 8],     // + teal · brown (full set)
+  };
+  const paletteIndex = (c) => { const m = PALETTE[difficulty]; return m && m[c] != null ? m[c] : c; };
 
   // ── Shared arcade leaderboard (one client for the whole arcade) ───────────
   // Data layer + modal UI are the synced shared modules, loaded as classic
@@ -178,7 +194,8 @@
         const isTop = (r === runs.length - 1);
         const isBottom = (r === 0);
         const bead = document.createElement('div');
-        bead.className = 'bead c' + run.c;
+        const ci = paletteIndex(run.c); // logical colour → per-tier display palette
+        bead.className = 'bead c' + ci;
         // one solid bead spanning the whole run (responsive via CSS vars)
         bead.style.height = 'calc(' + run.len + ' * var(--cell) + ' + (run.len - 1) + ' * var(--gap))';
         bead.style.borderRadius = R + 'px';
@@ -186,7 +203,7 @@
         bead.style.boxShadow = 'inset 0 5px 7px rgba(255,255,255,.26), inset 0 -9px 12px rgba(0,0,0,.30)';
         if (i === selected && isTop) bead.classList.add('lifted'); // lift the whole top run
         if (lastDrop && lastDrop.j === i && isTop) bead.classList.add(lastDrop.merged ? 'merging' : 'drop');
-        const sym = document.createElement('span'); sym.className = 'sym'; sym.textContent = SYM[run.c] || '';
+        const sym = document.createElement('span'); sym.className = 'sym'; sym.textContent = SYM[ci] || '';
         bead.appendChild(sym); // ONE symbol, centred in the run
         stack.appendChild(bead);
       }

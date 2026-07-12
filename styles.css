@@ -114,15 +114,15 @@ body {
    the gold/charcoal UI branding rather than fighting it. Chosen for (1) wide
    pairwise hue separation — no two warm colours read alike, sapphire stays clearly
    off teal, violet never drifts into blue, (2) medium-high luminance so every bead
-   stays legible on BOTH the cream light board and the dark "After Hours" board (no
-   muddy brown or near-black purple to vanish in low light — slate is the darkest we
-   go, never true black/white/brown), and (3) a distinct silhouette per colour via
-   the SYM glyphs (game.js), so colour-blind players and low-light play still tell
-   them apart.
-   ruby · amber · gold · emerald · teal · sapphire · violet · rose · slate */
+   stays legible on BOTH the cream light board and the dark "After Hours" board, and
+   (3) a distinct silhouette per colour via the SYM glyphs (game.js), so colour-blind
+   players and low-light play still tell them apart. Which of these nine a board
+   actually uses is a per-tier choice (see PALETTE in game.js) — brown is a HARD-only
+   expert colour, never surfacing next to a near-neighbour it could muddy in easy play.
+   ruby · amber · gold · emerald · teal · sapphire · violet · rose · brown */
 .c0 { --c: #e5484d; } .c1 { --c: #f59e0b; } .c2 { --c: #eab308; } .c3 { --c: #22c55e; }
 .c4 { --c: #14b8a6; } .c5 { --c: #2563eb; } .c6 { --c: #8b5cf6; } .c7 { --c: #ec4899; }
-.c8 { --c: #64748b; }
+.c8 { --c: #6d5b4f; }
 
 /* ── controls ────────────────────────────────────────────────── */
 .controls { display: flex; gap: 10px; justify-content: center; }

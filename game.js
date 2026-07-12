@@ -299,6 +299,9 @@
       statHtml: `${moves}<small> ${moves === 1 ? 'move' : 'moves'}</small>`,
       subHtml,
       detailHtml,
+      // A real daily solve finishes today's Tumbler → chain to the next daily.
+      dailyComplete: !practice && !replay,
+      gameSlug: GAME,
       nextLabel: 'Try to improve',
       advanceFirst: true,
       onShare: doShare,

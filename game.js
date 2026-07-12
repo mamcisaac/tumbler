@@ -513,7 +513,7 @@
     if (!window.ArcadeTutorial) return;
     // Match the in-game bead palette (styles.css .c0–.c8) so the tutorial art
     // reads as the real pieces.
-    const R = '#e5484d', O = '#f59e0b', Y = '#eab308', G = '#22c55e', C = '#14b8a6', B = '#2563eb', P = '#8b5cf6';
+    const R = '#e5484d', O = '#f97316', Y = '#facc15', G = '#22c55e', C = '#14b8a6', B = '#2563eb', P = '#8b5cf6';
     const svg = (inner) => '<svg viewBox="0 0 170 92" width="180" xmlns="http://www.w3.org/2000/svg">' + inner + '</svg>';
     const shell = (x, w, h) => '<rect x="' + x + '" y="14" width="' + w + '" height="' + h + '" rx="11" fill="none" stroke="currentColor" stroke-width="2" opacity=".5"/>';
     const beads = (x, list, h) => { // bottom-up coloured beads inside a shell at column x

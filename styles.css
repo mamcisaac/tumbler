@@ -44,10 +44,12 @@ body {
 /* ── board / tumblers ────────────────────────────────────────── */
 .board {
   --cell: clamp(24px, 4.4dvh, 38px); --gap: clamp(4px, .8dvh, 6px);
+  --cols: 5;
   display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end;
   gap: clamp(8px, 1.7dvh, 15px) 9px;
-  /* exactly 5 tumblers per row -> 9 wrap into a centred 5 + 4 */
-  max-width: calc(5 * (var(--cell) + 13px) + 4 * 9px + 2px);
+  /* Width is capped at exactly --cols tumblers, so a tier's 2·N tubes wrap into
+     two centred rows of N: easy 6→3+3, medium 8→4+4, hard 10→5+5. */
+  max-width: calc(var(--cols) * (var(--cell) + 13px) + (var(--cols) - 1) * 9px + 2px);
   margin: 0 auto; padding: clamp(4px, 1.4dvh, 14px) 0;
   perspective: 1300px;
 }
@@ -99,9 +101,11 @@ body {
   100% { transform: scale(1, 1);      filter: brightness(1); }
 }
 
-/* distinct palette (8) — maximised pairwise contrast */
+/* distinct palette (9) — maximised pairwise contrast; c8 (brown) is the hard
+   tier's 9th colour, kept low-saturation so it doesn't collide with the others */
 .c0 { --c: #e6194B; } .c1 { --c: #f58231; } .c2 { --c: #ffe119; } .c3 { --c: #3cb44b; }
 .c4 { --c: #42d4f4; } .c5 { --c: #4363d8; } .c6 { --c: #911eb4; } .c7 { --c: #f032e6; }
+.c8 { --c: #9A6324; }
 
 /* ── controls ────────────────────────────────────────────────── */
 .controls { display: flex; gap: 10px; justify-content: center; }

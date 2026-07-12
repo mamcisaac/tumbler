@@ -222,6 +222,9 @@
         if (lastDrop && lastDrop.j === i && isTop) bead.classList.add(lastDrop.merged ? 'merging' : 'drop');
         const sym = document.createElement('span');
         sym.className = DARK_SET.has(ci) ? 'sym sym-dark' : 'sym';
+        // Grow the glyph slightly with the glob so its mark stays proportionate to a
+        // taller bead (a lone glyph looks lost in a 4-high run). Subtle: +7%/cell.
+        sym.style.setProperty('--gs', (1 + 0.07 * (run.len - 1)).toFixed(3));
         sym.innerHTML = '<svg viewBox="0 0 24 24" fill="' + GLYPH_COLOR[ci] + '" aria-hidden="true">' + (SHAPE[ci] || '') + '</svg>';
         bead.appendChild(sym); // ONE glyph, geometry-centred in the run
         stack.appendChild(bead);

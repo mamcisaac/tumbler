@@ -88,17 +88,15 @@ body {
 
 .bead {
   height: var(--cell); background: var(--c);
-  display: grid; place-items: center;
+  display: flex; align-items: center; justify-content: center;
   transition: transform .14s ease;
 }
-/* White glyph, centred by the bead's place-items, with a subtle dark shadow so it
-   reads as one treatment on every colour and stays crisp in low light. Sized ~18%
-   up from the old .82rem for instant <500ms recognition. */
 /* Glyph is an inline SVG shape (game.js), geometry-centred and sized in rem so it
-   scales with the board. The bead's grid place-items centres it exactly. Legibility
-   comes from the glyph's own contrasting outline (stroke, set at render), which frees
-   the fill's light/dark to differentiate similar beads — so no halo filter is needed. */
-.bead .sym { display: grid; place-items: center; line-height: 0; user-select: none; }
+   scales with the board. Centred with FLEXBOX (not grid place-items, which older
+   engines don't support and fall back to top-left on — the "too far left" bug).
+   Legibility comes from the glyph's own contrasting outline (stroke, set at render),
+   which frees the fill's light/dark to differentiate similar beads. */
+.bead .sym { display: flex; align-items: center; justify-content: center; line-height: 0; user-select: none; }
 .bead .sym svg { width: calc(1.1rem * var(--gs, 1)); height: calc(1.1rem * var(--gs, 1)); display: block; }
 /* Selected top bead lifts to read as "picked up" — kept small (a full tube exactly
    fills the frame, so a bigger lift pokes the bead above the rim as a stray remnant). */

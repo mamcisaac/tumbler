@@ -33,6 +33,10 @@
   // render) — light glyphs a dark outline, dark glyphs a light one.
   const GLYPH_COLOR = ['#640219', '#f7e1d4', '#5f4a07', '#1f5016', '#d7f4ea', '#005566', '#d5e5f6', '#2b0c5a', '#efdcec'];
   const DARK_SET = new Set([0, 2, 3, 5, 7]); // deep-tint (dark) glyph; others pale (light)
+  // Per-bead rim accent — a LIGHT shade of the bead's own hue for the DARK_SET beads
+  // and a DEEP shade for the rest, so each tile's edge is a light/dark accent OF its
+  // colour (not a neutral line) while still following the glyph's differentiation split.
+  const ACCENT = ['#f6b7c5', '#853100', '#f3e5ba', '#c9e9c3', '#097b55', '#b4edf9', '#034282', '#d1bdf0', '#691c5c'];
 
   // Per-tier colour SELECTION. The full 9-colour palette (styles.css) is separated
   // for maximum mutual ΔE, so every subset is already unambiguous — tiers just scale
@@ -220,13 +224,12 @@
         bead.style.height = 'calc(' + run.len + ' * var(--cell) + ' + (run.len - 1) + ' * var(--gap))';
         bead.style.borderRadius = R + 'px';
         bead.style.marginBottom = isBottom ? '0' : 'var(--gap)';
-        // Contrast rim keyed to the SAME differentiation assignment as the glyph outline
-        // (DARK_SET) — closest colour pairs get opposite-luminance edges, adding the
-        // differentiation signal at the tile edge. A thin 1px line softened by a faint
-        // blur so it stays subtle and transitions out of the bead colour, not a hard ring.
-        const rim = DARK_SET.has(ci)
-          ? 'inset 0 0 0 1px rgba(255,255,255,.35), inset 0 0 3px rgba(255,255,255,.28)'
-          : 'inset 0 0 0 1px rgba(0,0,0,.24), inset 0 0 3px rgba(0,0,0,.22)';
+        // Contrast rim in the bead's own accent (light on DARK_SET beads, deep on the
+        // rest — so the closest colour pairs keep opposite-luminance edges). A thin 1px
+        // line softened by a faint blur so it stays subtle and transitions out of the
+        // bead colour. 8-digit hex adds the alpha (d9 ≈ .85, 99 ≈ .6).
+        const acc = ACCENT[ci];
+        const rim = 'inset 0 0 0 1px ' + acc + 'd9, inset 0 0 3px ' + acc + '99';
         bead.style.boxShadow = rim + ', inset 0 5px 7px rgba(255,255,255,.26), inset 0 -9px 12px rgba(0,0,0,.30)';
         if (i === selected && isTop) bead.classList.add('lifted'); // lift the whole top run
         if (lastDrop && lastDrop.j === i && isTop) bead.classList.add(lastDrop.merged ? 'merging' : 'drop');

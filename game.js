@@ -13,7 +13,7 @@
   // pairs get the most dissimilar shapes; similar shapes land on OPPOSITE luminance
   // (dark vs light glyph); and the jagged shapes aren't all one luminance. Radial-
   // signature shape-distance + colour ΔE + the fixed DARK_SET luminance split.
-  //   red ● · orange ⬟ · gold ★ · green ✚ · spring ◆ · cyan ˅(chevron) · blue ■ · purple ▲ · orchid ✦
+  //   red ● · orange ⬟ · gold ★ · green ✚ · spring ◆ · cyan ˅(chevron) · blue ▲ · purple ■ · orchid ✦
   //   (cyan is a chevron, not a hexagon: a regular hexagon reads as a circle at glyph size.)
   // Shapes are tuned for consistent OPTICAL weight — sizes set by eye against the
   // circle: thin/pointed shapes (triangle, pentagon, spark) grown, the heavy square
@@ -25,8 +25,8 @@
     '<path d="M9.7 3.7 h4.6 v6.0 h6.0 v4.6 h-6.0 v6.0 h-4.6 v-6.0 h-6.0 v-4.6 h6.0 z"/>',
     '<polygon points="12,3 21,12 12,21 3,12"/>',
     '<polygon points="3.3,6.35 12,12.65 20.7,6.35 20.7,11.35 12,17.65 3.3,11.35"/>',
-    '<rect x="5.4" y="5.4" width="13.2" height="13.2" rx="3.3"/>',
     '<polygon points="12,3.2 20.66,18.2 3.34,18.2"/>',
+    '<rect x="5.4" y="5.4" width="13.2" height="13.2" rx="3.3"/>',
     '<polygon points="12,2.1 14.83,9.17 21.9,12 14.83,14.83 12,21.9 9.17,14.83 2.1,12 9.17,9.17"/>',
   ];
   // Glyphs are solid BLACK & WHITE (not colour). Their light/dark direction (DARK_SET)
@@ -35,7 +35,7 @@
   // get opposite glyph luminance. DARK_SET beads take a WHITE glyph with a black outline;
   // the rest a BLACK glyph with a white outline — so every silhouette reads crisply on any
   // bead, and no black shape sits on a light bead as a "hole" (see render).
-  const DARK_SET = new Set([0, 2, 3, 5, 7]); // white glyph (+black outline); others black (+white)
+  const DARK_SET = new Set([0, 2, 3, 5, 6]); // white glyph (+black outline); others black (+white)
   // Per-bead rim accent — a LIGHT shade of the bead's own hue for the DARK_SET beads
   // and a DEEP shade for the rest, so each tile's edge is a light/dark accent OF its
   // colour (not a neutral line) while still following the glyph's differentiation split.
@@ -240,7 +240,13 @@
         sym.className = 'sym';
         // Grow the glyph slightly with the glob so its mark stays proportionate to a
         // taller bead (a lone glyph looks lost in a 4-high run). Subtle: +7%/cell.
-        sym.style.setProperty('--gs', (1 + 0.07 * (run.len - 1)).toFixed(3));
+        // The growth is baked straight into the viewBox — a smaller frame around the
+        // fixed, geometry-centred shape (centre 12,12) makes the shape fill more of the
+        // bead — so there is NO CSS transform whose sub-pixel rounding could nudge the
+        // glyph off-centre. Base frame 45 → shape = 24/45 of the bead; frame = 45/gs.
+        const gs = 1 + 0.07 * (run.len - 1);
+        const fr = 45 / gs, mn = (12 - fr / 2).toFixed(3), sz = fr.toFixed(3);
+        const vb = mn + ' ' + mn + ' ' + sz + ' ' + sz;
         // Solid black/white fill with the OPPOSITE-colour outline for a crisp silhouette on
         // any bead: DARK_SET → white fill + black outline, others → black fill + white outline.
         // Outline drawn ON TOP of the fill (no paint-order:stroke) — behind it only a sub-pixel
@@ -248,7 +254,9 @@
         // sharp (round softened them into blobs); miterlimit stops the points bevelling.
         const white = DARK_SET.has(ci);
         const fill = white ? '#ffffff' : '#000000', stroke = white ? '#000000' : '#ffffff';
-        sym.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="' + fill +
+        // SVG fills the whole bead box (styles.css) and the shape is centred by the
+        // viewBox — the glyph shares the bead's exact raster phase, so it never drifts.
+        sym.innerHTML = '<svg viewBox="' + vb + '" aria-hidden="true"><g fill="' + fill +
           '" stroke="' + stroke + '" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="6">' + (SHAPE[ci] || '') + '</g></svg>';
         bead.appendChild(sym); // ONE glyph, geometry-centred in the run
         stack.appendChild(bead);

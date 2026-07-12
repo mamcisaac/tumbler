@@ -5,25 +5,27 @@
   // Per-colour glyph (a second, colour-blind- and low-light-safe channel on top
   // of the bead colour). Nine distinct silhouettes forming one geometric language
   // — no hearts or half-circles, every piece identifiable in isolation, ordered
-  // simple → complex so players learn "circle = ruby" not "random icon". U+FE0E
+  // simple → complex so players learn "circle = red" not "random icon". U+FE0E
   // forces TEXT rendering so none falls back to a coloured emoji (the old '✳'
   // rendered as a green emoji on some platforms, mismatching its tile).
-  //   ruby ● · amber ▲ · gold ■ · emerald ◆ · teal ★ · sapphire ✚ · violet ⬢ · rose ⬟ · brown ✦
+  //   red ● · orange ▲ · gold ■ · green ◆ · spring ★ · cyan ✚ · blue ⬢ · purple ⬟ · orchid ✦
   const SYM = ['●', '▲', '■', '◆', '★', '✚', '⬢', '⬟', '✦'].map((g) => g + '︎');
 
-  // Per-tier colour SELECTION — difficulty reflects perceptual similarity, not
-  // just how many colours are on the board. Easy uses only the "primary mental
-  // categories" (maximum pairwise separation, robust to poor lighting / colour-
-  // vision differences); harder tiers fold in the subtle neighbours the glyphs
-  // keep fair: medium adds ruby↔amber, amber↔gold and violet↔rose; hard adds the
-  // green/blue-green boundary (emerald·teal·sapphire) plus brown. Each entry maps
-  // a puzzle's stored logical colour k → an index into the master .c0–.c8 palette
-  // (styles.css) and SYM glyphs. Solve logic stays on the dense logical indices;
+  // Which palette indices are LIGHT beads (Lab L > ~75: gold, spring, cyan) — these
+  // carry a dark glyph (.sym-dark) instead of white, so the silhouette keeps full
+  // contrast. Indexed by palette index (.c0–.c8); keep in sync with the palette.
+  const LIGHT_BEAD = [false, false, true, false, true, true, false, false, false];
+
+  // Per-tier colour SELECTION. The full 9-colour palette (styles.css) is separated
+  // for maximum mutual ΔE, so every subset is already unambiguous — tiers just scale
+  // the COUNT of colours (5 / 7 / 9) for combinatorial difficulty, not confusability.
+  // Each entry maps a puzzle's stored logical colour k → an index into the master
+  // .c0–.c8 palette and SYM glyphs. Solve logic stays on the dense logical indices;
   // this only changes what's drawn, so the same board data serves every tier.
   const PALETTE = {
-    easy:   [0, 2, 3, 5, 6],                 // ruby · gold · emerald · sapphire · violet
-    medium: [0, 1, 2, 3, 5, 6, 7],           // + amber · rose
-    hard:   [0, 1, 2, 3, 4, 5, 6, 7, 8],     // + teal · brown (full set)
+    easy:   [0, 2, 3, 5, 6],                 // red · gold · green · cyan · blue
+    medium: [0, 1, 2, 3, 5, 6, 7],           // + orange · purple
+    hard:   [0, 1, 2, 3, 4, 5, 6, 7, 8],     // + spring · orchid (full set)
   };
   const paletteIndex = (c) => { const m = PALETTE[difficulty]; return m && m[c] != null ? m[c] : c; };
 
@@ -203,7 +205,7 @@
         bead.style.boxShadow = 'inset 0 5px 7px rgba(255,255,255,.26), inset 0 -9px 12px rgba(0,0,0,.30)';
         if (i === selected && isTop) bead.classList.add('lifted'); // lift the whole top run
         if (lastDrop && lastDrop.j === i && isTop) bead.classList.add(lastDrop.merged ? 'merging' : 'drop');
-        const sym = document.createElement('span'); sym.className = 'sym'; sym.textContent = SYM[ci] || '';
+        const sym = document.createElement('span'); sym.className = LIGHT_BEAD[ci] ? 'sym sym-dark' : 'sym'; sym.textContent = SYM[ci] || '';
         bead.appendChild(sym); // ONE symbol, centred in the run
         stack.appendChild(bead);
       }
@@ -513,7 +515,7 @@
     if (!window.ArcadeTutorial) return;
     // Match the in-game bead palette (styles.css .c0–.c8) so the tutorial art
     // reads as the real pieces.
-    const R = '#e5484d', O = '#f97316', Y = '#facc15', G = '#22c55e', C = '#14b8a6', B = '#2563eb', P = '#8b5cf6';
+    const R = '#e50b3e', O = '#ff843d', Y = '#eec84f', G = '#3d962c', C = '#33ebad', B = '#298ff5', P = '#874ae3';
     const svg = (inner) => '<svg viewBox="0 0 170 92" width="180" xmlns="http://www.w3.org/2000/svg">' + inner + '</svg>';
     const shell = (x, w, h) => '<rect x="' + x + '" y="14" width="' + w + '" height="' + h + '" rx="11" fill="none" stroke="currentColor" stroke-width="2" opacity=".5"/>';
     const beads = (x, list, h) => { // bottom-up coloured beads inside a shell at column x

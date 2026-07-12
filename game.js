@@ -13,7 +13,7 @@
   // factory (created below, once the board-key helpers are declared).
   const GAME = 'tumbler';
   const LB = window.ArcadeLeaderboard;
-  const { submitScore, reportStats, loadSharedHandle, saveSharedHandle } = LB;
+  const { submitMetricCompletion, reportStats, loadSharedHandle, saveSharedHandle } = LB;
 
   // ── difficulty tiers ───────────────────────────────────────────────────────
   // Each daily ships three boards, all starting from one empty tumbler + full
@@ -306,7 +306,9 @@
     reportStats(GAME);   // unified launcher-card stat (solves + streak)
     // Record EVERY completion (not just improvements) so all scores show on the
     // board; the shared read dedupes each handle to its best (fewest moves).
-    await submitScore({ game: GAME, board: dailyBoardKey(difficulty, puzzleId), handle: getHandle(), score: moves, meta: { par, value: moves, difficulty } });
+    // Arcade standard: post to the daily board AND a fresh all-time board
+    // (alltime2|<diff>) so the modal's All-time tab populates. Ranks by moves.
+    await submitMetricCompletion({ game: GAME, difficulty, value: moves, handle: getHandle(), board: dailyBoardKey(difficulty, puzzleId), meta: { par, difficulty }, alltimeVersion: 2 });
     await submitTotalIfComplete();
     showResults(moves, getLocalBest());
   }
@@ -320,7 +322,7 @@
   async function submitTotalIfComplete() {
     const total = dayTotal();
     if (total == null) return;
-    await submitScore({ game: GAME, board: dailyBoardKey('total', puzzleId), handle: getHandle(), score: total, meta: { value: total, difficulty: 'total' } });
+    await submitMetricCompletion({ game: GAME, difficulty: 'total', value: total, handle: getHandle(), board: dailyBoardKey('total', puzzleId), meta: { difficulty: 'total' }, alltimeVersion: 2 });
   }
 
   // Shared arcade results card, mounted inside the existing #resultsModal.
@@ -382,9 +384,10 @@
     openModal('resultsModal');
   }
 
-  // ── Shared leaderboard modal (single daily board; fewest moves wins) ───────
-  // The factory owns the modal (Today/You tabs + day-nav) and the post-win
-  // standings; dedup-to-best-per-handle happens on read inside fetchTop.
+  // ── Shared leaderboard modal (Easy/Medium/Hard boards; fewest moves wins) ──
+  // The factory owns the modal (Today/All-time/You scope tabs + Easy/Medium/Hard
+  // difficulty tabs + day-nav) and the post-win standings; dedup-to-best-per-
+  // handle happens on read inside fetchTop.
   function lbDayLabel(offset) {
     if (offset === 0) return 'Today';
     if (offset === 1) return 'Yesterday';
@@ -399,9 +402,10 @@
     getHandle: () => getHandle() || null,
     boardKeyForOffset: (offset, diff) => dailyBoardKey(diff, localDateStr(localDayNum() - offset)),
     dayLabelForOffset: lbDayLabel,
-    rowStat: (r) => `${r.score}<small> mv</small>`,
+    rowStat: (r) => `${(r.meta && r.meta.value != null) ? r.meta.value : r.score}<small> mv</small>`,
     youRow: (best) => `${best.value != null ? best.value : best.moves}<small> mv</small>`,
     youHead: 'Your best by difficulty',
+    alltimeVersion: 2,
     bestComparator: (e, cur) => (e.value != null ? e.value : e.moves) < (cur.value != null ? cur.value : cur.moves),
     youStats: { metricLabel: 'Moves', buckets: [{ label: '≤12', max: 12 }, { label: '13–20', max: 20 }, { label: '21–30', max: 30 }, { label: '31+' }] },
   });
@@ -530,7 +534,7 @@
     document.querySelectorAll('.diff-btn').forEach((btn) => {
       btn.addEventListener('click', () => { if (btn.dataset.diff !== difficulty) setDifficulty(btn.dataset.diff); });
     });
-    lbUi.wire();   // shared factory owns the #lbButton + #lb-modal (Today/You tabs, day-nav)
+    lbUi.wire();   // shared factory owns the #lbButton + #lb-modal (Today/All-time/You + Easy/Medium/Hard tabs, day-nav)
     // Reveal + wire the hidden topbar archive button (past daily puzzles).
     window.ArcadeArchive.createArchive({ loadDailyForDate, isDayDone }).wire();
     $('helpButton').addEventListener('click', () => { $('highlightToggle').checked = effectiveHighlight(); openModal('helpModal'); });

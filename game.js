@@ -220,7 +220,11 @@
         bead.style.height = 'calc(' + run.len + ' * var(--cell) + ' + (run.len - 1) + ' * var(--gap))';
         bead.style.borderRadius = R + 'px';
         bead.style.marginBottom = isBottom ? '0' : 'var(--gap)';
-        bead.style.boxShadow = 'inset 0 5px 7px rgba(255,255,255,.26), inset 0 -9px 12px rgba(0,0,0,.30)';
+        // Contrast rim keyed to the SAME differentiation assignment as the glyph outline
+        // (DARK_SET) — so the closest colour pairs get opposite-luminance rims too, adding
+        // the differentiation signal at the tile edge. Matches each bead's glyph outline.
+        const rim = DARK_SET.has(ci) ? 'inset 0 0 0 1.5px rgba(255,255,255,.6)' : 'inset 0 0 0 1.5px rgba(0,0,0,.45)';
+        bead.style.boxShadow = rim + ', inset 0 5px 7px rgba(255,255,255,.26), inset 0 -9px 12px rgba(0,0,0,.30)';
         if (i === selected && isTop) bead.classList.add('lifted'); // lift the whole top run
         if (lastDrop && lastDrop.j === i && isTop) bead.classList.add(lastDrop.merged ? 'merging' : 'drop');
         const sym = document.createElement('span');

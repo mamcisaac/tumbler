@@ -242,14 +242,14 @@
         // Grow the glyph slightly with the glob so its mark stays proportionate to a
         // taller bead (a lone glyph looks lost in a 4-high run). Subtle: +7%/cell.
         sym.style.setProperty('--gs', (1 + 0.07 * (run.len - 1)).toFixed(3));
-        // Bold NEUTRAL outline (behind the fill) for maximum silhouette contrast: white on
-        // the dark glyphs, black on the light ones. Neutral (not a hue) so the edge is as
-        // sharp as possible regardless of fill; the colour lives entirely on the fill. MITER
-        // join keeps polygon vertices sharp (a round join softened the pentagon/hexagon into
-        // circle-like blobs); miterlimit keeps the star/spark points from bevelling.
+        // Bold NEUTRAL outline for maximum silhouette contrast: white on the dark glyphs,
+        // black on the light ones. Drawn ON TOP of the fill (no paint-order:stroke) — behind
+        // the fill only the outer ~half of the stroke showed, a sub-pixel line that anti-
+        // aliased into a soft blur; on top the full 2px reads crisp. MITER join keeps polygon
+        // vertices sharp (round softened them into blobs); miterlimit stops the points bevelling.
         const stroke = DARK_SET.has(ci) ? '#ffffff' : '#000000';
         sym.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="' + GLYPH_COLOR[ci] +
-          '" stroke="' + stroke + '" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="6" paint-order="stroke">' + (SHAPE[ci] || '') + '</g></svg>';
+          '" stroke="' + stroke + '" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="6">' + (SHAPE[ci] || '') + '</g></svg>';
         bead.appendChild(sym); // ONE glyph, geometry-centred in the run
         stack.appendChild(bead);
       }

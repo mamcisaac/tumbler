@@ -95,14 +95,11 @@ body {
    reads as one treatment on every colour and stays crisp in low light. Sized ~18%
    up from the old .82rem for instant <500ms recognition. */
 /* Glyph is an inline SVG shape (game.js), geometry-centred and sized in rem so it
-   scales with the board. The bead's grid place-items centres it exactly. */
+   scales with the board. The bead's grid place-items centres it exactly. Legibility
+   comes from the glyph's own contrasting outline (stroke, set at render), which frees
+   the fill's light/dark to differentiate similar beads — so no halo filter is needed. */
 .bead .sym { display: grid; place-items: center; line-height: 0; user-select: none; }
-.bead .sym svg { width: calc(1.1rem * var(--gs, 1)); height: calc(1.1rem * var(--gs, 1)); display: block; filter: drop-shadow(0 1px .6px rgba(0,0,0,.5)); }
-/* Every glyph is filled with a tint of its own bead hue (inline fill) for one
-   engraved treatment: dark beads take a pale glyph raised by a dark halo; light
-   beads (.sym-dark: orange/gold/spring/cyan/orchid) take a deep glyph recessed by a
-   light halo — so none reads as a flat sticker or a black hole punched in the bead. */
-.bead .sym.sym-dark svg { filter: drop-shadow(0 1px .6px rgba(255,255,255,.55)); }
+.bead .sym svg { width: calc(1.1rem * var(--gs, 1)); height: calc(1.1rem * var(--gs, 1)); display: block; }
 .bead.lifted { transform: translateY(-13px); filter: drop-shadow(0 7px 8px rgba(0,0,0,.35)); }
 .bead.drop { animation: drop .26s cubic-bezier(.3,1.25,.5,1); }
 @keyframes drop { from { transform: translateY(-32px); } to { transform: translateY(0); } }
@@ -123,9 +120,9 @@ body {
    CIEDE2000 distance across the whole set: every pair is ΔE ≥ 25 ("clearly
    distinct"), up from a worst-case ~14 in the old hand-picked set. Because the full
    set is that well separated, every per-tier subset (see PALETTE in game.js) is too.
-   Luminance is used as a separation channel, so three beads (gold, spring, cyan) are
-   light — they carry a deep-tinted glyph instead of a pale one (see .sym-dark /
-   GLYPH_COLOR in game.js) so the silhouette stays crisp. All stay vivid and legible on BOTH the
+   The glyph adds a further channel: its light/dark direction (DARK_SET in game.js) is
+   assigned so the closest colour pairs get opposite-luminance glyphs, telling similar
+   beads apart at a glance. All stay vivid and legible on BOTH the
    cream light board and the dark "After Hours" board.
    red · orange · gold · green · spring · cyan · blue · purple · orchid */
 .c0 { --c: #e50b3e; } .c1 { --c: #ff843d; } .c2 { --c: #eec84f; } .c3 { --c: #3d962c; }

@@ -2,20 +2,25 @@
  * empty tumbler (i.e. the other 8 start completely full), laid out as two
  * rows of 4 + the empty one centred to the right?
  *
- *   node empty-tube-study.mjs [samples]
+ *   node empty-tube-study.mjs [samples] [colors]
  *
- * Compares the CURRENT regime (reverse-scramble spreads the 4 slack slots
+ * Compares the CURRENT regime (reverse-scramble spreads the slack slots
  * across the rack — 92% of the shipped pool starts with zero empty tubes)
- * against the PROPOSED regime (uniform deal of 32 beads into 8 full tubes +
- * 1 empty). Written up in empty-tube-study.md.
+ * against the PROPOSED regime (uniform deal into full colour tubes + empty
+ * tubes). The rack is always 9 tubes, so colors=7 leaves 8 free slots; that
+ * variant also gets a third regime: one guaranteed-empty side tube with the
+ * remaining slack spread across the 8 grid tubes. Written up in
+ * empty-tube-study.md.
  */
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const E = require('./engine.js');
 const S = require('./solver.js');
 
-const NCOLORS = 8, K = 4, SCRAMBLE = 52;
+const K = 4, SCRAMBLE = 52, NTUBES = 9;
 const N = +(process.argv[2] || 120);
+const NCOLORS = +(process.argv[3] || 8);
+const NEMPTY = NTUBES - NCOLORS;
 
 function mulberry32(a) {
   return function () {
@@ -32,7 +37,7 @@ const choice = (rng, arr) => arr[randInt(rng, arr.length)];
 function solvedBoard(rng) {
   const tubes = [];
   for (let c = 0; c < NCOLORS; c++) tubes.push(Array(K).fill(c));
-  tubes.push([]);
+  for (let e = 0; e < NEMPTY; e++) tubes.push([]);
   for (let i = tubes.length - 1; i > 0; i--) { const j = randInt(rng, i + 1); const t = tubes[i]; tubes[i] = tubes[j]; tubes[j] = t; }
   return tubes;
 }
@@ -73,34 +78,67 @@ function scramble(rng) {
   return board;
 }
 
-/* ── proposed pipeline: uniform deal, 8 full tubes + 1 empty ─────── */
-function randomFullBoard(rng) {
+/* ── proposed pipeline: uniform deal, full colour tubes + empties ── */
+function shuffledBalls(rng) {
   const balls = [];
   for (let c = 0; c < NCOLORS; c++) for (let k = 0; k < K; k++) balls.push(c);
   for (let i = balls.length - 1; i > 0; i--) { const j = randInt(rng, i + 1); const t = balls[i]; balls[i] = balls[j]; balls[j] = t; }
+  return balls;
+}
+function randomFullBoard(rng) {
+  const balls = shuffledBalls(rng);
   const tubes = [];
   for (let t = 0; t < NCOLORS; t++) tubes.push(balls.slice(t * K, (t + 1) * K));
+  for (let e = 0; e < NEMPTY; e++) tubes.push([]);
+  return tubes;
+}
+
+/* Variant for NEMPTY > 1: keep ONE guaranteed-empty side tube; spread the
+ * remaining slack across the 8 grid tubes (deal beads + blanks, compress). */
+function randomSpreadBoard(rng) {
+  const slots = shuffledBalls(rng);
+  for (let b = 0; b < (NTUBES - 1) * K - NCOLORS * K; b++) slots.push(-1);
+  for (let i = slots.length - 1; i > 0; i--) { const j = randInt(rng, i + 1); const t = slots[i]; slots[i] = slots[j]; slots[j] = t; }
+  const tubes = [];
+  for (let t = 0; t < NTUBES - 1; t++) tubes.push(slots.slice(t * K, (t + 1) * K).filter(x => x >= 0));
   tubes.push([]);
   return tubes;
 }
 
-/* Classic water sort = this game WITHOUT rotate. Exhaustive BFS, so a -1 is a
- * proof of unsolvability, not a budget miss. */
+/* Classic water sort = this game WITHOUT rotate. Weighted A* over pours only;
+ * -1 means the whole reachable space was exhausted, i.e. PROVABLY unsolvable
+ * (not a budget miss); null means the node budget ran out first. */
+function heapPush(a, item) {
+  a.push(item); let i = a.length - 1;
+  while (i > 0) { const p = (i - 1) >> 1; if (a[p][0] <= a[i][0]) break; const t = a[p]; a[p] = a[i]; a[i] = t; i = p; }
+}
+function heapPop(a) {
+  const top = a[0], last = a.pop();
+  if (a.length) { a[0] = last; let i = 0;
+    while (true) { const l = 2 * i + 1, r = l + 1; let s = i;
+      if (l < a.length && a[l][0] < a[s][0]) s = l;
+      if (r < a.length && a[r][0] < a[s][0]) s = r;
+      if (s === i) break; const t = a[s]; a[s] = a[i]; a[i] = t; i = s; } }
+  return top;
+}
+
 function solveNoRotate(startBoard, cap) {
   if (E.solved(startBoard)) return 0;
-  const seen = new Set([E.key(startBoard)]);
-  const q = [[startBoard, 0]];
+  const open = [];
+  heapPush(open, [2 * S.heuristic(startBoard), startBoard, 0]);
+  const gMap = new Map([[E.key(startBoard), 0]]);
   let nodes = 0;
-  while (q.length) {
-    const [board, g] = q.shift();
+  while (open.length) {
+    const [, board, g] = heapPop(open);
     if (++nodes > cap) return null;
     for (const mv of E.legalPours(board, K, { prune: true })) {
       const nb = E.applyMove(board, mv, K);
       const nk = E.key(nb);
-      if (seen.has(nk)) continue;
-      seen.add(nk);
-      if (E.solved(nb)) return g + 1;
-      q.push([nb, g + 1]);
+      const ng = g + 1;
+      if (gMap.has(nk) && gMap.get(nk) <= ng) continue;
+      gMap.set(nk, ng);
+      if (E.solved(nb)) return ng;
+      heapPush(open, [ng + 2 * S.heuristic(nb), nb, ng]);
     }
   }
   return -1;
@@ -163,6 +201,7 @@ function study(name, gen) {
   console.log('  random playouts solved within 300 moves: ' + (100 * playoutWins / playoutTotal).toFixed(1) + '%');
 }
 
-console.log('samples per regime: ' + N);
+console.log('samples per regime: ' + N + '   colors: ' + NCOLORS + '  rack: ' + NTUBES + ' tubes  (' + NEMPTY * K + ' free slots)');
 study('CURRENT: reverse-scramble, slack spread anywhere', scramble);
-study('PROPOSED: 8 full tubes + 1 empty tube (uniform deal)', randomFullBoard);
+study('PROPOSED: ' + NCOLORS + ' full tubes + ' + NEMPTY + ' empty tube(s) (uniform deal)', randomFullBoard);
+if (NEMPTY > 1) study('PROPOSED-ALT: 1 guaranteed empty side tube, remaining slack spread over the grid', randomSpreadBoard);

@@ -87,12 +87,32 @@ it's an ordinary tumbler, and other tubes empty out during play — the special
 position is a nice opening affordance, not a persistent rule. Worth keeping its
 styling identical to the rest so it doesn't read as mechanically different.
 
+## Follow-up: would 7 colours soften the forgiveness drop?
+
+Measured (`node empty-tube-study.mjs 150 7` — same 9-tube rack, 28 beads, 8 free
+slots, in both the "7 full + 2 empty" and "1 guaranteed side empty + slack spread
+in the grid" arrangements). It overshoots badly — the extra slack doesn't soften
+the game, it collapses it:
+
+| Metric | 8 colours, 1 empty | 7 colours (either arrangement) |
+|---|---|---|
+| Optimal par (mean) | 26.4 | 21–22 |
+| Boards in the 28–40 par window | ~33% | **0%** |
+| Provably unsolvable without Rotate | ~97% | **0%** |
+| Solutions using ≥1 rotate | 100% | 27–29% |
+| Random-play solve rate | 12% | ~96% |
+
+With 8 free slots every board is solvable as plain water sort, so Rotate — the
+game's whole identity — becomes decorative, and near-random play wins 96% of the
+time. 7 colours is not a viable difficulty lever on this rack; the free-slack knob
+is extremely steep (4 slots → 8 slots swings random-play solvability from 12% to
+96%). Difficulty tuning should stay at 8 colours and use the par window instead.
+
 ## Recommendation
 
 Feasible and attractive: a cleaner, more legible opening, a stronger showcase for
 Rotate (it becomes visibly load-bearing from move 1), simpler generation, and only
 ~+1.5 moves of par. The real design decision is the forgiveness drop — casual
-players will dead-end about twice as often. If that's a concern, compensating
-levers exist: keep the par window at the low end (28–32), or raise the daily's
-free-slack back up by trying 7 colours + 1 empty on the same 2×4+1 rack (28 beads,
-8 free slots) and re-measuring with this script.
+players will dead-end about twice as often. If that's a concern, the working lever
+is the par window (keep it at the low end, 28–32); dropping to 7 colours is not an
+option — see the follow-up above.

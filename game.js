@@ -4,25 +4,27 @@
   const E = window.TumblerEngine;
   // Per-colour glyph (a second, colour-blind- and low-light-safe channel on top of
   // the bead colour). Nine distinct silhouettes forming one geometric language — no
-  // hearts or half-circles, every piece identifiable in isolation, ordered simple →
-  // complex so players learn "circle = red" not "random icon". Drawn as inline SVG,
+  // hearts or half-circles, every piece identifiable in isolation. Drawn as inline SVG,
   // each centred by GEOMETRY in a 24×24 box: pixel-perfect centring on every platform
   // (text glyphs sat low and shifted with the system font) and no emoji fallback.
-  //   ● red · ▲ orange · ■ gold · ◆ green · ★ spring · ✚ cyan · ⬢ blue · ⬟ purple · ✦ orchid
-  // Shapes are tuned for consistent OPTICAL weight — bounding box is a poor guide, so
-  // sizes are set by eye against the circle: the thin/pointed shapes (triangle,
-  // pentagon, spark) are grown, the heavy filled square is eased down, until all nine
-  // read the same size.
+  // Which shape goes to which colour is ASSIGNED FOR MAX DIFFERENTIATION: the closest
+  // colour pairs get the most dissimilar shapes (computed by brute-forcing all 9!
+  // assignments against a radial-signature shape-distance weighted by colour ΔE), and
+  // the three round-ish shapes (circle/hexagon/pentagon) sit on mutually distant hues.
+  //   red ⬢ · orange ✚ · gold ■ · green ⬟ · spring ✦ · cyan ● · blue ★ · purple ◆ · orchid ▲
+  // Shapes are tuned for consistent OPTICAL weight — sizes set by eye against the
+  // circle: thin/pointed shapes (triangle, pentagon, spark) grown, the heavy square
+  // eased down, until all nine read the same size.
   const SHAPE = [
-    '<circle cx="12" cy="12" r="7.3"/>',
-    '<polygon points="12,3.2 20.66,18.2 3.34,18.2"/>',
-    '<rect x="5.4" y="5.4" width="13.2" height="13.2" rx="3.3"/>',
-    '<polygon points="12,3 21,12 12,21 3,12"/>',
-    '<polygon points="12,2.7 14.29,8.84 20.84,9.13 15.71,13.21 17.47,19.52 12,15.9 6.53,19.52 8.29,13.21 3.16,9.13 9.71,8.84"/>',
-    '<path d="M9.7 3.7 h4.6 v6.0 h6.0 v4.6 h-6.0 v6.0 h-4.6 v-6.0 h-6.0 v-4.6 h6.0 z"/>',
     '<polygon points="16.35,4.47 20.7,12 16.35,19.53 7.65,19.53 3.3,12 7.65,4.47"/>',
+    '<path d="M9.7 3.7 h4.6 v6.0 h6.0 v4.6 h-6.0 v6.0 h-4.6 v-6.0 h-6.0 v-4.6 h6.0 z"/>',
+    '<rect x="5.4" y="5.4" width="13.2" height="13.2" rx="3.3"/>',
     '<polygon points="12,3.7 21.04,10.26 17.58,20.89 6.42,20.89 2.96,10.26"/>',
     '<polygon points="12,2.1 14.83,9.17 21.9,12 14.83,14.83 12,21.9 9.17,14.83 2.1,12 9.17,9.17"/>',
+    '<circle cx="12" cy="12" r="7.3"/>',
+    '<polygon points="12,2.7 14.29,8.84 20.84,9.13 15.71,13.21 17.47,19.52 12,15.9 6.53,19.52 8.29,13.21 3.16,9.13 9.71,8.84"/>',
+    '<polygon points="12,3 21,12 12,21 3,12"/>',
+    '<polygon points="12,3.2 20.66,18.2 3.34,18.2"/>',
   ];
   // Glyph fill is a tint of its own hue, but its LIGHT/DARK direction (DARK_SET) is
   // chosen to MAXIMISE DIFFERENTIATION across beads, not for contrast on its own bead:

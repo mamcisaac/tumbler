@@ -11,10 +11,11 @@
   //   red ● · orange ▲ · gold ■ · green ◆ · spring ★ · cyan ✚ · blue ⬢ · purple ⬟ · orchid ✦
   const SYM = ['●', '▲', '■', '◆', '★', '✚', '⬢', '⬟', '✦'].map((g) => g + '︎');
 
-  // Which palette indices are LIGHT beads (Lab L > ~75: gold, spring, cyan) — these
-  // carry a dark glyph (.sym-dark) instead of white, so the silhouette keeps full
-  // contrast. Indexed by palette index (.c0–.c8); keep in sync with the palette.
-  const LIGHT_BEAD = [false, false, true, false, true, true, false, false, false];
+  // Light beads (Lab L > ~75: gold, spring, cyan) would strain a white glyph, so
+  // they carry a dark one instead — tinted to a DEEP SHADE OF THEIR OWN HUE, not
+  // flat black (a black glyph on yellow reads as a punched-through hole). With the
+  // light halo from .sym-dark this gives an engraved look. Palette index → colour.
+  const DARK_GLYPH = { 2: '#6e5200', 4: '#0b6248', 5: '#0a5e78' };
 
   // Per-tier colour SELECTION. The full 9-colour palette (styles.css) is separated
   // for maximum mutual ΔE, so every subset is already unambiguous — tiers just scale
@@ -205,7 +206,9 @@
         bead.style.boxShadow = 'inset 0 5px 7px rgba(255,255,255,.26), inset 0 -9px 12px rgba(0,0,0,.30)';
         if (i === selected && isTop) bead.classList.add('lifted'); // lift the whole top run
         if (lastDrop && lastDrop.j === i && isTop) bead.classList.add(lastDrop.merged ? 'merging' : 'drop');
-        const sym = document.createElement('span'); sym.className = LIGHT_BEAD[ci] ? 'sym sym-dark' : 'sym'; sym.textContent = SYM[ci] || '';
+        const sym = document.createElement('span'); const dg = DARK_GLYPH[ci];
+        sym.className = dg ? 'sym sym-dark' : 'sym'; if (dg) sym.style.color = dg;
+        sym.textContent = SYM[ci] || '';
         bead.appendChild(sym); // ONE symbol, centred in the run
         stack.appendChild(bead);
       }

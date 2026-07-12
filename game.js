@@ -238,11 +238,12 @@
         // Grow the glyph slightly with the glob so its mark stays proportionate to a
         // taller bead (a lone glyph looks lost in a 4-high run). Subtle: +7%/cell.
         sym.style.setProperty('--gs', (1 + 0.07 * (run.len - 1)).toFixed(3));
-        // Contrasting outline (behind the fill) carries legibility so the fill's
-        // light/dark can differentiate beads: dark glyph → light outline, and vice versa.
-        const stroke = DARK_SET.has(ci) ? 'rgba(255,255,255,.9)' : 'rgba(0,0,0,.6)';
+        // Crisp outline (behind the fill) carries legibility so the fill's light/dark can
+        // differentiate beads. Tinted to the bead's ACCENT (same colour as the rim) rather
+        // than neutral white/black — it stays a light accent on dark glyphs and a deep one
+        // on light glyphs, so it still contrasts the fill while harmonising with the rim.
         sym.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="' + GLYPH_COLOR[ci] +
-          '" stroke="' + stroke + '" stroke-width="1.4" stroke-linejoin="round" paint-order="stroke">' + (SHAPE[ci] || '') + '</g></svg>';
+          '" stroke="' + ACCENT[ci] + '" stroke-width="1.5" stroke-linejoin="round" paint-order="stroke">' + (SHAPE[ci] || '') + '</g></svg>';
         bead.appendChild(sym); // ONE glyph, geometry-centred in the run
         stack.appendChild(bead);
       }

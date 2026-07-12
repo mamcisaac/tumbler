@@ -108,6 +108,18 @@ time. 7 colours is not a viable difficulty lever on this rack; the free-slack kn
 is extremely steep (4 slots → 8 slots swings random-play solvability from 12% to
 96%). Difficulty tuning should stay at 8 colours and use the par window instead.
 
+## Follow-up: does picking low-par boards restore forgiveness?
+
+Only partially. Bucketing 400 boards per regime by par (40 random playouts each,
+300-move cap): forgiveness falls gently with par (r ≈ −0.25) in both regimes, and
+in the proposed regime it runs ≈19% for par ≤22 down to ≈8% for par ≥29. Even the
+*easiest* one-empty bucket is less forgiving than the *hardest* current-regime
+bucket (≈24%) — the forgiveness drop is a property of the all-full opening, not of
+par, so the par window can trim difficulty at the margin but not buy the old
+forgiveness back. Random wins take ~1.6–1.7× par in both regimes (≈36–45 moves),
+so the drop is purely in how often aimless play gets through, not in how long the
+wins take.
+
 ## Recommendation
 
 Feasible and attractive: a cleaner, more legible opening, a stronger showcase for

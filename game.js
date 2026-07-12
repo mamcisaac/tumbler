@@ -31,7 +31,7 @@
   // real second channel telling similar beads apart. Legibility no longer depends on
   // the fill because every glyph carries a contrasting OUTLINE (stroke, added at
   // render) — light glyphs a dark outline, dark glyphs a light one.
-  const GLYPH_COLOR = ['#640219', '#ffbe99', '#5f4a07', '#1f5016', '#a2f6da', '#005566', '#9eccfa', '#2b0c5a', '#e8b0df'];
+  const GLYPH_COLOR = ['#640219', '#fbccb1', '#5f4a07', '#1f5016', '#b8f4e0', '#005566', '#b5d6f8', '#2b0c5a', '#ebc2e4'];
   const DARK_SET = new Set([0, 2, 3, 5, 7]); // deep-tint (dark) glyph; others pale (light)
   // Per-bead rim accent — a LIGHT shade of the bead's own hue for the DARK_SET beads
   // and a DEEP shade for the rest, so each tile's edge is a light/dark accent OF its

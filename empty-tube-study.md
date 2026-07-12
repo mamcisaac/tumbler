@@ -145,11 +145,48 @@ deals in the current par window (generation nearly filter-free), pars are
 ~4 moves longer, and rotation is used more per solve. As a like-for-like
 replacement for today's difficulty, though, 8+1 remains the right shape.
 
+## Follow-up: 7 colours + 1 empty on a 2×4 rack (8 tubes)
+
+Measured (`node empty-tube-study.mjs 150 7 8` — 28 beads, 4 free slots). Unlike
+7 colours on the 9-tube rack (which collapsed the game), shrinking the rack keeps
+the slack at 4 slots and the game intact — and this turns out to be the most
+forgiving one-empty configuration. The one-empty ladder, all with a single empty
+tube and 4 free slots:
+
+| | 7+1 (2×4) | 8+1 (2×4 + side) | 9+1 (2×5) | current shipped |
+|---|---|---|---|---|
+| Optimal par (mean) | 22.7 | 26.4 | 29.6 | ~25 (pool par 29–35) |
+| Random-play solve rate | 18–19% | ~12% | 6.6% | ~25–29% |
+| …lowest-par bucket | 23% | 19% | 11% | 36% |
+| Provably unsolvable without Rotate | 93% | 97% | 99% | 100% |
+| Mean rotates per solution | 2.7 | 3.3 | 4.2 | 3.3 |
+| Raw deals in the 28–40 window | 3% | 33% | 90% | 15% |
+
+Each added colour roughly halves forgiveness (19% → 11% → 7%) — the
+slack-to-colours ratio is the difficulty dial, in smooth steps. 7+1 gets within
+striking distance of today's forgiveness (19% vs ~25%), keeps Rotate essentially
+mandatory (93% of boards, 99% of solutions), and has the cleanest layout of all:
+a plain 2×4 grid, four columns instead of five, so tumblers can render larger on
+phones. The trade-offs: dailies get ~3 moves shorter (par ~23 vs the shipped
+pool's 29–35, so the par window must move to roughly 20–26), and the rotate
+requirement is a notch weaker — worth keeping the generator's uses-rotation
+filter, and possibly tightening it to require rotation (discard the ~7% of deals
+solvable without it, which the no-rotate prover in this script can check).
+
 ## Recommendation
 
 Feasible and attractive: a cleaner, more legible opening, a stronger showcase for
 Rotate (it becomes visibly load-bearing from move 1), simpler generation, and only
-~+1.5 moves of par. The real design decision is the forgiveness drop — casual
-players will dead-end about twice as often. If that's a concern, the working lever
-is the par window (keep it at the low end, 28–32); dropping to 7 colours is not an
-option — see the follow-up above.
+~+1.5 moves of par. The real design decision is the forgiveness drop, and the
+follow-ups above map the whole dial. Keep exactly one empty tube and 4 free slots,
+and pick a colour count:
+
+- **7+1 on a 2×4 rack** — closest to today's forgiveness (19% vs ~25%), shorter
+  dailies (par ~23), largest tumblers on phones. The "keep the feel" option.
+- **8+1 on 2×4 + side tube** — like-for-like par (~+1.5 moves), ~2× less
+  forgiving. The "keep the length" option, and the layout the proposal described.
+- **9+1 on 2×5** — hard mode: par +4, forgiveness 7%, near-free generation.
+
+Adding slack instead (7 colours on the 9-tube rack) breaks the game — Rotate goes
+optional and random play wins 96% of the time — and the par window only trims
+forgiveness at the margin (r ≈ −0.25). The colour count is the one honest dial.

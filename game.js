@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const E = window.TumblerEngine;
-  const SYM = ['◆', '●', '▲', '■', '★', '⬟', '✚', '⬢']; // per-colour glyph (accessibility)
+  const SYM = ['◆', '●', '▲', '■', '★', '⬟', '✚', '⬢', '✳']; // per-colour glyph (accessibility); index 8 is hard-tier's 9th colour
 
   // ── Shared arcade leaderboard (one client for the whole arcade) ───────────
   // Data layer + modal UI are the synced shared modules, loaded as classic
@@ -15,10 +15,21 @@
   const LB = window.ArcadeLeaderboard;
   const { submitScore, reportStats, loadSharedHandle, saveSharedHandle } = LB;
 
+  // ── difficulty tiers ───────────────────────────────────────────────────────
+  // Each daily ships three boards, all starting from one empty tumbler + full
+  // colour tubes, laid out as a 2×N grid (see empty-tube-study.md):
+  //   easy   5+1 → 6 tubes (2×3)   medium 7+1 → 8 tubes (2×4)   hard 9+1 → 10 (2×5)
+  // Same easy→medium→hard run as the rest of the arcade: solving one tier
+  // advances to the next, and clearing all three completes the daily (which
+  // chains to the next arcade game via the shared results card).
+  const DIFFS = ['easy', 'medium', 'hard'];
+  const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+  const DIFF_KEY = 'ctt.tumbler.difficulty';
+
   // ── state ──────────────────────────────────────────────────────────────────
-  let PUZZLES = null, CAP = 4;
+  let PUZZLES = null, CAP = 4, COLS = 5;
   let board = [], initial = [], history = [], moveCount = 0;
-  let selected = -1, mode = 'daily', puzzleId = '', par = 0;
+  let selected = -1, mode = 'daily', puzzleId = '', par = 0, difficulty = 'easy';
   let lastDrop = null, animating = false, solvedAlready = false;
 
   const $ = (id) => document.getElementById(id);
@@ -56,19 +67,22 @@
     const d = new Date(dayNum * 86400000);
     return d.getUTCFullYear() + '-' + (d.getUTCMonth() + 1) + '-' + d.getUTCDate();
   }
-  // Namespaced leaderboard board key for a daily date (keeps boards distinct + tidy).
-  function dailyBoardKey(dateStr) { return 'd1|' + dateStr; }
+  // Namespaced leaderboard board key for a daily date + difficulty. The `d2|`
+  // prefix starts a fresh board generation (the one-empty tiers aren't
+  // comparable to the old single-board scores under `d1|`).
+  function dailyBoardKey(diff, dateStr) { return 'd2|' + diff + '|' + dateStr; }
+  function tierPool(diff) { return PUZZLES.tiers[diff].puzzles; }
   function startDaily() {
     mode = 'daily';
     // dailyDateKey() is today's local 'YYYY-M-D' — or the archived day being
-    // replayed. Same key format as the old localDateStr(localDayNum()), so
-    // today's puzzle, best-chip key, and daily board key are all unchanged.
+    // replayed. The same date drives all three tiers; the difficulty selects
+    // which tier's pool the day-number indexes into.
     const key = window.ArcadeDailySeed.dailyDateKey();
     const dayNum = dayNumFromKey(key);
-    const idx = ((dayNum % PUZZLES.puzzles.length) + PUZZLES.puzzles.length) % PUZZLES.puzzles.length;
-    const p = PUZZLES.puzzles[idx];
+    const pool = tierPool(difficulty);
+    const idx = ((dayNum % pool.length) + pool.length) % pool.length;
     puzzleId = key;
-    loadPuzzle(p);
+    loadPuzzle(PUZZLES.tiers[difficulty], pool[idx]);
     $('puzzleLabel').textContent = 'Daily · ' + puzzleId;
     refreshBestChip();
   }
@@ -81,22 +95,24 @@
     setModeUI('daily');
     startDaily();
   }
-  // A day counts as done once its daily has been solved at least once — that's
-  // exactly when we've written a local best for that date key.
+  // A day counts as done once ANY tier's daily has been solved — that's when a
+  // local best exists for that date under one of the difficulties.
   function isDayDone(dateKey) {
-    try { return localStorage.getItem('ctt.tumbler.best.' + dateKey) != null; } catch (_) { return false; }
+    return DIFFS.some((d) => getLocalBest(d, dateKey) != null);
   }
   function startPractice() {
     mode = 'practice';
-    const idx = Math.floor(Math.random() * PUZZLES.puzzles.length);
-    const p = PUZZLES.puzzles[idx];
+    const pool = tierPool(difficulty);
+    const idx = Math.floor(Math.random() * pool.length);
     puzzleId = 'practice';
-    loadPuzzle(p);
-    $('puzzleLabel').textContent = 'Practice';
+    loadPuzzle(PUZZLES.tiers[difficulty], pool[idx]);
+    $('puzzleLabel').textContent = 'Practice · ' + DIFF_LABEL[difficulty];
     $('bestChip').hidden = true;
   }
-  function loadPuzzle(p) {
-    CAP = p.capacity || PUZZLES.capacity || 4;
+  function loadPuzzle(tier, p) {
+    CAP = PUZZLES.capacity || 4;
+    COLS = tier.cols || (tier.tubes / 2);
+    boardEl.style.setProperty('--cols', COLS);
     initial = p.tubes.map((t) => t.slice());
     par = p.par || 0;
     $('parVal').textContent = par || '–';
@@ -231,13 +247,24 @@
   function checkWin() { if (E.solved(board)) onSolved(); }
 
   // ── win / results ──────────────────────────────────────────────────────────
-  function bestKey() { return 'ctt.tumbler.best.' + puzzleId; }
-  function getLocalBest() { try { return parseInt(localStorage.getItem(bestKey()), 10) || null; } catch (_) { return null; } }
-  function setLocalBest(v) { try { localStorage.setItem(bestKey(), String(v)); } catch (_) {} }
+  // Best is per (difficulty, date) so each tier keeps its own replayable best.
+  function bestKey(diff, id) { return 'ctt.tumbler.best.' + diff + '.' + (id || puzzleId); }
+  function getLocalBest(diff, id) { try { return parseInt(localStorage.getItem(bestKey(diff || difficulty, id)), 10) || null; } catch (_) { return null; } }
+  function setLocalBest(v) { try { localStorage.setItem(bestKey(difficulty), String(v)); } catch (_) {} }
   function refreshBestChip() {
     const b = getLocalBest();
     if (mode === 'daily' && b) { $('bestVal').textContent = b; $('bestChip').hidden = false; }
     else $('bestChip').hidden = true;
+  }
+  // First tier in easy→medium→hard order (wrapping past `current`) with no local
+  // best today, or null when all three are solved — drives results progression.
+  function nextUnsolvedTier(current) {
+    const ci = DIFFS.indexOf(current);
+    for (let k = 1; k <= DIFFS.length; k++) {
+      const t = DIFFS[(ci + k) % DIFFS.length];
+      if (getLocalBest(t) == null) return t;
+    }
+    return null;
   }
   function recordHistory(moves) {
     try {
@@ -245,7 +272,7 @@
       // `difficulty`/`value` let the shared "You" panel (personalBests + stats)
       // read this same history — the whole arcade records one shape. Older
       // entries also carried `stars`; the shared comparator still reads those.
-      h.push({ date: puzzleId, difficulty: 'daily', moves, value: moves, par, t: Date.now() });
+      h.push({ date: puzzleId, difficulty, moves, value: moves, par, t: Date.now() });
       localStorage.setItem('ctt.tumbler.history', JSON.stringify(h.slice(-400)));
     } catch (_) {}
   }
@@ -268,7 +295,7 @@
     reportStats(GAME);   // unified launcher-card stat (solves + streak)
     // Record EVERY completion (not just improvements) so all scores show on the
     // board; the shared read dedupes each handle to its best (fewest moves).
-    await submitScore({ game: GAME, board: dailyBoardKey(puzzleId), handle: getHandle(), score: moves, meta: { par, value: moves } });
+    await submitScore({ game: GAME, board: dailyBoardKey(difficulty, puzzleId), handle: getHandle(), score: moves, meta: { par, value: moves, difficulty } });
     showResults(moves, getLocalBest());
   }
 
@@ -279,19 +306,27 @@
   function showResults(moves, localBest) {
     const practice = mode === 'practice';
     const replay = !practice && !!window.__archiveDateKey;
+    const progress = !practice && !replay;          // live daily → tier progression
+    // On the live daily, advancing to the next unsolved tier is the primary
+    // action; clearing all three completes the daily and chains to the next
+    // arcade game (dailyComplete). Practice/replay just offer replay + share.
+    const nextTier = progress ? nextUnsolvedTier(difficulty) : null;
+    const allDone = progress && nextTier === null;
     let subHtml, detailHtml;
     if (practice) {
-      subHtml = `You solved it in <b>${moves}</b> moves. <span style="color:var(--fg-subtle)">(par ${par})</span>`;
+      subHtml = `You solved the <b>${DIFF_LABEL[difficulty]}</b> board in <b>${moves}</b> moves. <span style="color:var(--fg-subtle)">(par ${par})</span>`;
       detailHtml = '<p class="improve-note">Practice puzzles don’t count on the leaderboard — but you can keep trimming moves.</p>';
     } else {
       const best = localBest != null ? localBest : moves;
-      const note = (localBest != null && moves > localBest)
-        ? `Your best is ${localBest}. Restart and try to match or beat it.`
-        : 'Beat it: restart and try to use fewer moves — your best score is the one that counts.';
-      subHtml = `You solved ${replay ? 'the ' + puzzleId + ' daily' : "today's puzzle"}. Your best: <b>${best}</b>` +
+      const beatNote = (localBest != null && moves > localBest)
+        ? `Your best is ${localBest}. Try again to match or beat it.`
+        : 'Try again to use fewer moves — your best score is the one that counts.';
+      const advNote = nextTier ? ` Next up: <b>${DIFF_LABEL[nextTier]}</b>.`
+        : (allDone ? ' You’ve cleared all three tiers today. 🎉' : '');
+      subHtml = `You solved the <b>${DIFF_LABEL[difficulty]}</b> ${replay ? puzzleId + ' board' : 'daily'}. Your best: <b>${best}</b>.${advNote}` +
         window.ArcadeLeaderboard.streakLineHtml(GAME);
-      detailHtml = `<p class="improve-note">${note}</p>` +
-        `<div class="results-lb-title">${replay ? puzzleId + '’s' : 'Today’s'} leaderboard</div>`;
+      detailHtml = `<p class="improve-note">${beatNote}</p>` +
+        `<div class="results-lb-title">${replay ? puzzleId + '’s' : 'Today’s'} ${DIFF_LABEL[difficulty]} leaderboard</div>`;
     }
     window.ArcadeResults.renderResults({
       mount: $('resultsMount'),
@@ -299,13 +334,17 @@
       statHtml: `${moves}<small> ${moves === 1 ? 'move' : 'moves'}</small>`,
       subHtml,
       detailHtml,
-      // A real daily solve finishes today's Tumbler → chain to the next daily.
-      dailyComplete: !practice && !replay,
+      // Clearing every tier finishes today's Tumbler → chain to the next daily.
+      dailyComplete: allDone,
       gameSlug: GAME,
-      nextLabel: 'Try to improve',
-      advanceFirst: true,
+      // While a tier is left, advancing to it is the primary CTA; "Try again"
+      // is always available (the daily is replayable — best score counts).
+      nextLabel: nextTier ? DIFF_LABEL[nextTier] + ' →' : null,
+      advanceFirst: !!nextTier,
+      againLabel: 'Try again',
       onShare: doShare,
-      onNext: () => { closeModal('resultsModal'); resetToInitial(); },
+      onNext: nextTier ? () => { closeModal('resultsModal'); setDifficulty(nextTier); } : undefined,
+      onAgain: () => { closeModal('resultsModal'); resetToInitial(); },
     });
     if (!practice) {
       // Standings render through the shared factory (fewest moves first, deduped
@@ -313,7 +352,7 @@
       // the modal shows (the replayed day's board during an archive replay).
       const lbMount = $('resultsMount').querySelector('#lb-inline');
       lbMount.classList.add('lb-scroll');
-      lbUi.renderBoard(lbMount, dailyBoardKey(puzzleId), getHandle() || null);
+      lbUi.renderBoard(lbMount, dailyBoardKey(difficulty, puzzleId), getHandle() || null);
     }
     $('shareCardWrap').hidden = true; $('shareCardWrap').innerHTML = '';
     openModal('resultsModal');
@@ -330,15 +369,17 @@
   }
   const lbUi = window.ArcadeLeaderboardUI.createLeaderboardModal({
     gameSlug: GAME,
+    difficulties: DIFFS,
+    diffLabel: DIFF_LABEL,
+    getDifficulty: () => difficulty,
     getHandle: () => getHandle() || null,
-    boardKeyForOffset: (offset) => dailyBoardKey(localDateStr(localDayNum() - offset)),
+    boardKeyForOffset: (offset, diff) => dailyBoardKey(diff, localDateStr(localDayNum() - offset)),
     dayLabelForOffset: lbDayLabel,
     rowStat: (r) => `${r.score}<small> mv</small>`,
     youRow: (best) => `${best.value != null ? best.value : best.moves}<small> mv</small>`,
-    youLabel: 'Best',
-    youHeadSingle: 'Your daily best',
+    youHead: 'Your best by difficulty',
     bestComparator: (e, cur) => (e.value != null ? e.value : e.moves) < (cur.value != null ? cur.value : cur.moves),
-    youStats: { metricLabel: 'Moves', buckets: [{ label: '≤10', max: 10 }, { label: '11–15', max: 15 }, { label: '16–25', max: 25 }, { label: '26+' }] },
+    youStats: { metricLabel: 'Moves', buckets: [{ label: '≤12', max: 12 }, { label: '13–20', max: 20 }, { label: '21–30', max: 30 }, { label: '31+' }] },
   });
 
   // ── share ──────────────────────────────────────────────────────────────────
@@ -462,6 +503,9 @@
     $('restartBtn').addEventListener('click', restart);
     $('modeDaily').addEventListener('click', () => { setMode('daily'); });
     $('modePractice').addEventListener('click', () => { setMode('practice'); });
+    document.querySelectorAll('.diff-btn').forEach((btn) => {
+      btn.addEventListener('click', () => { if (btn.dataset.diff !== difficulty) setDifficulty(btn.dataset.diff); });
+    });
     lbUi.wire();   // shared factory owns the #lbButton + #lb-modal (Today/You tabs, day-nav)
     // Reveal + wire the hidden topbar archive button (past daily puzzles).
     window.ArcadeArchive.createArchive({ loadDailyForDate, isDayDone }).wire();
@@ -495,10 +539,31 @@
     setModeUI(m);
     if (m === 'daily') startDaily(); else startPractice();
   }
+  function setDiffUI(d) {
+    document.querySelectorAll('.diff-btn').forEach((b) => {
+      const on = b.dataset.diff === d;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on);
+    });
+  }
+  function loadDifficulty() {
+    try { const d = localStorage.getItem(DIFF_KEY); if (DIFFS.indexOf(d) >= 0) return d; } catch (_) {}
+    return 'easy';
+  }
+  function setDifficulty(d) {
+    if (DIFFS.indexOf(d) < 0) return;
+    difficulty = d;
+    try { localStorage.setItem(DIFF_KEY, d); } catch (_) {}
+    setDiffUI(d);
+    if (mode === 'daily') startDaily(); else startPractice();
+  }
 
   // ── boot ─────────────────────────────────────────────────────────────────────
-  fetch('puzzles.json?v=1').then((r) => r.json()).then((data) => {
-    PUZZLES = data; wire(); startDaily(); initTutorial();
+  fetch('puzzles.json?v=2').then((r) => r.json()).then((data) => {
+    PUZZLES = data;
+    difficulty = loadDifficulty();
+    setDiffUI(difficulty);
+    wire(); startDaily(); initTutorial();
   }).catch((err) => {
     boardEl.innerHTML = '<div class="lb-status">Could not load puzzles. Refresh to try again.</div>';
     console.error(err);

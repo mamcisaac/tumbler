@@ -194,20 +194,51 @@ mode": short, forgiving, still rotation-flavoured, and a 2×3 rack renders huge
 on phones. Between 5+1 and 7+1, note 6+1 (2×3+side or 2×4 with a gap) as the
 remaining interpolation point if a middle step is ever wanted.
 
-## Recommendation
+## Follow-up: keep only boards that require ≥2 rotations?
 
-Feasible and attractive: a cleaner, more legible opening, a stronger showcase for
-Rotate (it becomes visibly load-bearing from move 1), simpler generation, and only
-~+1.5 moves of par. The real design decision is the forgiveness drop, and the
-follow-ups above map the whole dial. Keep exactly one empty tube and 4 free slots,
-and pick a colour count:
+Measured per tier (a board "requires ≥2" iff it is provably unsolvable with ≤1
+rotation — exhaustive bounded-rotation search, so these are proofs). The
+acceptance rate — what fraction of solvable deals qualify — is the headline, and
+it varies enormously by tier:
 
-- **7+1 on a 2×4 rack** — closest to today's forgiveness (19% vs ~25%), shorter
-  dailies (par ~23), largest tumblers on phones. The "keep the feel" option.
-- **8+1 on 2×4 + side tube** — like-for-like par (~+1.5 moves), ~2× less
-  forgiving. The "keep the length" option, and the layout the proposal described.
-- **9+1 on 2×5** — hard mode: par +4, forgiveness 7%, near-free generation.
+| Tier | min rotations = 0 | = 1 | **≥ 2** | par (all → kept) | forgiveness (all → kept) |
+|---|---|---|---|---|---|
+| Easy 5+1 | 29% | 69% | **2%** | 15.4 → 16.0 | 44.5% → 33.3% |
+| Medium 7+1 | 7% | 71% | **21.5%** | 22.9 → 24.0 | 19.1% → 16.9% |
+| Hard 9+1 | 0.5% | 39.5% | **60%** | 30.5 → 30.9 | 6.8% → 6.4% |
 
-Adding slack instead (7 colours on the 9-tube rack) breaks the game — Rotate goes
-optional and random play wins 96% of the time — and the par window only trims
-forgiveness at the margin (r ≈ −0.25). The colour count is the one honest dial.
+Reading it:
+
+- **Easy can't use it.** Only 2% of easy deals genuinely need two rotations, so a
+  ≥2 filter would reject 98% of deals (≈50× slower generation) and select a weird
+  hard tail — par and forgiveness would drift toward medium. Not viable.
+- **Hard gets it almost for free.** 60% of hard deals already require ≥2, and the
+  ones kept are statistically indistinguishable from the full set (par 30.9 vs
+  30.5, forgiveness 6.4% vs 6.8%). So requiring ≥2 on hard costs ~nothing and
+  strengthens the rotation identity — it's applied in the shipped generator.
+- **Medium is the tunable one.** 21.5% acceptance is affordable (≈5× more tries),
+  and the effect is real but modest: par +1.1, forgiveness −2 pts. Left at ≥1 to
+  keep medium's "middle" feel and fast generation; move it to ≥2 in `generate.mjs`
+  (`TIERS[medium].minRot = 2`) if a spikier medium is wanted.
+
+The universal choice, independent of the ≥2 question, is to require **≥1** rotation
+on every tier (`minRot: 1`): it lifts the "needs a rotation" share to 100% —
+fixing the softness that 5+1 (75%) and 7+1 (93%) otherwise carry — so Rotate is
+load-bearing on every board the player sees, easy included.
+
+## Recommendation (implemented)
+
+Shipped as three tiers, all one-empty, 4 free slots, requiring a rotation:
+
+- **Easy — 5+1, 2×3**, par ~15, `minRot 1`. The casual/on-ramp tier; forgiving
+  (~40%), huge tumblers on phones, still teaches Rotate.
+- **Medium — 7+1, 2×4**, par ~23, `minRot 1`. Closest to the old game's feel.
+- **Hard — 9+1, 2×5**, par ~31, `minRot 2`. Par +4 over today, ~7% forgiveness,
+  rotation-heavy — and the ≥2 filter is essentially free here.
+
+Solving one tier advances to the next; clearing all three completes the daily and
+chains onward, exactly like Mosaic. What we did **not** do: add slack to soften a
+tier (7 colours on the 9-tube rack breaks the game — Rotate goes optional, random
+play wins 96%), and we don't lean on the par window as a difficulty dial (it only
+trims forgiveness at the margin, r ≈ −0.25). Difficulty rides the colour count;
+the rotation floor guarantees the mechanic always matters.

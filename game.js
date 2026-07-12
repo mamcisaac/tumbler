@@ -244,8 +244,10 @@
         // differentiate beads. Tinted to the bead's ACCENT (same colour as the rim) rather
         // than neutral white/black — it stays a light accent on dark glyphs and a deep one
         // on light glyphs, so it still contrasts the fill while harmonising with the rim.
+        // MITER join keeps polygon vertices sharp (a round join softened the pentagon/
+        // hexagon into circle-like blobs); miterlimit keeps the star/spark points from bevelling.
         sym.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="' + GLYPH_COLOR[ci] +
-          '" stroke="' + ACCENT[ci] + '" stroke-width="1.5" stroke-linejoin="round" paint-order="stroke">' + (SHAPE[ci] || '') + '</g></svg>';
+          '" stroke="' + ACCENT[ci] + '" stroke-width="1.5" stroke-linejoin="miter" stroke-miterlimit="6" paint-order="stroke">' + (SHAPE[ci] || '') + '</g></svg>';
         bead.appendChild(sym); // ONE glyph, geometry-centred in the run
         stack.appendChild(bead);
       }

@@ -97,7 +97,7 @@ body {
 /* Glyph is an inline SVG shape (game.js), geometry-centred and sized in rem so it
    scales with the board. The bead's grid place-items centres it exactly. */
 .bead .sym { display: grid; place-items: center; line-height: 0; user-select: none; }
-.bead .sym svg { width: 1.1rem; height: 1.1rem; display: block; filter: drop-shadow(0 1px .6px rgba(0,0,0,.5)); }
+.bead .sym svg { width: calc(1.1rem * var(--gs, 1)); height: calc(1.1rem * var(--gs, 1)); display: block; filter: drop-shadow(0 1px .6px rgba(0,0,0,.5)); }
 /* Every glyph is filled with a tint of its own bead hue (inline fill) for one
    engraved treatment: dark beads take a pale glyph raised by a dark halo; light
    beads (.sym-dark: orange/gold/spring/cyan/orchid) take a deep glyph recessed by a

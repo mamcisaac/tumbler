@@ -13,7 +13,8 @@
   // pairs get the most dissimilar shapes; similar shapes land on OPPOSITE luminance
   // (dark vs light glyph); and the jagged shapes aren't all one luminance. Radial-
   // signature shape-distance + colour ΔE + the fixed DARK_SET luminance split.
-  //   red ● · orange ⬟ · gold ★ · green ✚ · spring ◆ · cyan ⬢ · blue ■ · purple ▲ · orchid ✦
+  //   red ● · orange ⬟ · gold ★ · green ✚ · spring ◆ · cyan ˅(chevron) · blue ■ · purple ▲ · orchid ✦
+  //   (cyan is a chevron, not a hexagon: a regular hexagon reads as a circle at glyph size.)
   // Shapes are tuned for consistent OPTICAL weight — sizes set by eye against the
   // circle: thin/pointed shapes (triangle, pentagon, spark) grown, the heavy square
   // eased down, until all nine read the same size.
@@ -23,7 +24,7 @@
     '<polygon points="12,2.7 14.29,8.84 20.84,9.13 15.71,13.21 17.47,19.52 12,15.9 6.53,19.52 8.29,13.21 3.16,9.13 9.71,8.84"/>',
     '<path d="M9.7 3.7 h4.6 v6.0 h6.0 v4.6 h-6.0 v6.0 h-4.6 v-6.0 h-6.0 v-4.6 h6.0 z"/>',
     '<polygon points="12,3 21,12 12,21 3,12"/>',
-    '<polygon points="16.35,4.47 20.7,12 16.35,19.53 7.65,19.53 3.3,12 7.65,4.47"/>',
+    '<polygon points="3.3,6.35 12,12.65 20.7,6.35 20.7,11.35 12,17.65 3.3,11.35"/>',
     '<rect x="5.4" y="5.4" width="13.2" height="13.2" rx="3.3"/>',
     '<polygon points="12,3.2 20.66,18.2 3.34,18.2"/>',
     '<polygon points="12,2.1 14.83,9.17 21.9,12 14.83,14.83 12,21.9 9.17,14.83 2.1,12 9.17,9.17"/>',

@@ -173,6 +173,27 @@ requirement is a notch weaker — worth keeping the generator's uses-rotation
 filter, and possibly tightening it to require rotation (discard the ~7% of deals
 solvable without it, which the no-rotate prover in this script can check).
 
+## Follow-up: 5 colours + 1 empty on a 2×3 rack (6 tubes)
+
+Measured (`node empty-tube-study.mjs 150 5 6` — 20 beads, 4 free slots, slack
+ratio 0.8). This extends the ladder into genuinely casual territory, and it's the
+first point where the Rotate identity visibly frays rather than just easing:
+
+| | 5+1 (2×3) | 7+1 (2×4) | 8+1 | 9+1 |
+|---|---|---|---|---|
+| Optimal par (mean) | 15.3 | 22.7 | 26.4 | 29.6 |
+| Random-play solve rate | **43–45%** | 18–19% | ~12% | 6.6% |
+| Provably unsolvable without Rotate | **75%** | 93% | 97% | 99% |
+| Solutions using ≥1 rotate (mean rotates) | 91% (1.4) | 99% (2.7) | 100% (3.3) | 100% (4.2) |
+
+Nearly half of aimless playouts win, puzzles run ~15 moves, and a quarter of raw
+deals are solvable as plain water sort (a require-rotation generator filter can
+discard those, but organic rotate usage still halves to ~1.4 per solve). Too
+soft for the flagship daily, but a good shape for a tutorial or a quick "casual
+mode": short, forgiving, still rotation-flavoured, and a 2×3 rack renders huge
+on phones. Between 5+1 and 7+1, note 6+1 (2×3+side or 2×4 with a gap) as the
+remaining interpolation point if a middle step is ever wanted.
+
 ## Recommendation
 
 Feasible and attractive: a cleaner, more legible opening, a stronger showcase for

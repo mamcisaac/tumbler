@@ -100,7 +100,9 @@ body {
    the fill's light/dark to differentiate similar beads — so no halo filter is needed. */
 .bead .sym { display: grid; place-items: center; line-height: 0; user-select: none; }
 .bead .sym svg { width: calc(1.1rem * var(--gs, 1)); height: calc(1.1rem * var(--gs, 1)); display: block; }
-.bead.lifted { transform: translateY(-13px); filter: drop-shadow(0 7px 8px rgba(0,0,0,.35)); }
+/* Selected top bead lifts to read as "picked up" — kept small (a full tube exactly
+   fills the frame, so a bigger lift pokes the bead above the rim as a stray remnant). */
+.bead.lifted { transform: translateY(-6px); filter: drop-shadow(0 4px 6px rgba(0,0,0,.35)); }
 .bead.drop { animation: drop .26s cubic-bezier(.3,1.25,.5,1); }
 @keyframes drop { from { transform: translateY(-32px); } to { transform: translateY(0); } }
 /* a run fusing into one bigger bead — a squash-and-stretch "impact" with a

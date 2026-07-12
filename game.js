@@ -137,8 +137,9 @@
     for (let i = t.length - 2; i >= 0 && t[i] === c; i--) n++;
     return n;
   }
+  // A tumbler earns the ✓ only when it's a full single-colour stack. An empty
+  // tumbler is not "done" — it's just empty — so it gets no checkmark.
   function isDone(t) {
-    if (t.length === 0) return true;
     if (t.length !== CAP) return false;
     for (let i = 1; i < t.length; i++) if (t[i] !== t[0]) return false;
     return true;

@@ -88,16 +88,20 @@ body {
 
 .bead {
   height: var(--cell); background: var(--c);
-  display: flex; align-items: center; justify-content: center;
+  position: relative;
   transition: transform .14s ease;
 }
-/* Glyph is an inline SVG shape (game.js), geometry-centred and sized in rem so it
-   scales with the board. Centred with FLEXBOX (not grid place-items, which older
-   engines don't support and fall back to top-left on — the "too far left" bug).
-   Legibility comes from the glyph's own contrasting outline (stroke, set at render),
-   which frees the fill's light/dark to differentiate similar beads. */
-.bead .sym { display: flex; align-items: center; justify-content: center; line-height: 0; user-select: none; }
-.bead .sym svg { width: calc(1.1rem * var(--gs, 1)); height: calc(1.1rem * var(--gs, 1)); display: block; }
+/* Glyph is an inline SVG shape (game.js), geometry-centred in its viewBox. It's
+   centred in the bead with the absolute + inset:0 + margin:auto technique — with a
+   fixed width/height this places it dead-centre on EVERY engine (flex/grid centring
+   of SVG mis-landed on iOS Safari — the "too far left" bug). The svg fills the .sym
+   box, so its own geometry-centred shape lands exactly on the bead centre. */
+.bead .sym {
+  position: absolute; inset: 0; margin: auto;
+  width: calc(1.1rem * var(--gs, 1)); height: calc(1.1rem * var(--gs, 1));
+  line-height: 0; user-select: none;
+}
+.bead .sym svg { width: 100%; height: 100%; display: block; }
 /* Selected top bead lifts to read as "picked up" — kept small (a full tube exactly
    fills the frame, so a bigger lift pokes the bead above the rim as a stray remnant). */
 .bead.lifted { transform: translateY(-6px); filter: drop-shadow(0 4px 6px rgba(0,0,0,.35)); }

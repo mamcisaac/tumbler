@@ -29,15 +29,13 @@
     '<polygon points="12,3.2 20.66,18.2 3.34,18.2"/>',
     '<polygon points="12,2.1 14.83,9.17 21.9,12 14.83,14.83 12,21.9 9.17,14.83 2.1,12 9.17,9.17"/>',
   ];
-  // Glyph fill carries the COLOUR — a saturated shade of the bead's own hue, whose
-  // LIGHT/DARK direction (DARK_SET) is chosen to MAXIMISE DIFFERENTIATION across beads,
-  // not for own-bead contrast: the closest colour pairs (green/spring, cyan/blue,
-  // purple/orchid, red/orange, orange/gold, blue/purple) each get opposite glyph
-  // luminance. Legibility + shape sharpness come from a bold NEUTRAL outline (white on
-  // the dark glyphs, black on the light ones — see render), so the fill is free to be
-  // fully chromatic and the silhouette reads crisply.
-  const GLYPH_COLOR = ['#660018', '#fbccb1', '#664e00', '#106600', '#b8f4e0', '#005566', '#b5d6f8', '#3d0099', '#ebc2e4'];
-  const DARK_SET = new Set([0, 2, 3, 5, 7]); // deep-tint (dark) glyph; others pale (light)
+  // Glyphs are solid BLACK & WHITE (not colour). Their light/dark direction (DARK_SET)
+  // is still assigned to MAXIMISE DIFFERENTIATION across beads: the closest colour pairs
+  // (green/spring, cyan/blue, purple/orchid, red/orange, orange/gold, blue/purple) each
+  // get opposite glyph luminance. DARK_SET beads take a WHITE glyph with a black outline;
+  // the rest a BLACK glyph with a white outline — so every silhouette reads crisply on any
+  // bead, and no black shape sits on a light bead as a "hole" (see render).
+  const DARK_SET = new Set([0, 2, 3, 5, 7]); // white glyph (+black outline); others black (+white)
   // Per-bead rim accent — a LIGHT shade of the bead's own hue for the DARK_SET beads
   // and a DEEP shade for the rest, so each tile's edge is a light/dark accent OF its
   // colour (not a neutral line) while still following the glyph's differentiation split.
@@ -243,13 +241,14 @@
         // Grow the glyph slightly with the glob so its mark stays proportionate to a
         // taller bead (a lone glyph looks lost in a 4-high run). Subtle: +7%/cell.
         sym.style.setProperty('--gs', (1 + 0.07 * (run.len - 1)).toFixed(3));
-        // Bold NEUTRAL outline for maximum silhouette contrast: white on the dark glyphs,
-        // black on the light ones. Drawn ON TOP of the fill (no paint-order:stroke) — behind
-        // the fill only the outer ~half of the stroke showed, a sub-pixel line that anti-
-        // aliased into a soft blur; on top the full 2px reads crisp. MITER join keeps polygon
-        // vertices sharp (round softened them into blobs); miterlimit stops the points bevelling.
-        const stroke = DARK_SET.has(ci) ? '#ffffff' : '#000000';
-        sym.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="' + GLYPH_COLOR[ci] +
+        // Solid black/white fill with the OPPOSITE-colour outline for a crisp silhouette on
+        // any bead: DARK_SET → white fill + black outline, others → black fill + white outline.
+        // Outline drawn ON TOP of the fill (no paint-order:stroke) — behind it only a sub-pixel
+        // sliver showed and anti-aliased into a soft blur. MITER join keeps polygon vertices
+        // sharp (round softened them into blobs); miterlimit stops the points bevelling.
+        const white = DARK_SET.has(ci);
+        const fill = white ? '#ffffff' : '#000000', stroke = white ? '#000000' : '#ffffff';
+        sym.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="' + fill +
           '" stroke="' + stroke + '" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="6">' + (SHAPE[ci] || '') + '</g></svg>';
         bead.appendChild(sym); // ONE glyph, geometry-centred in the run
         stack.appendChild(bead);

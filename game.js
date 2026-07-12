@@ -24,12 +24,15 @@
     '<polygon points="12,3.7 21.04,10.26 17.58,20.89 6.42,20.89 2.96,10.26"/>',
     '<polygon points="12,2.1 14.83,9.17 21.9,12 14.83,14.83 12,21.9 9.17,14.83 2.1,12 9.17,9.17"/>',
   ];
-  // Every glyph is filled with a tint of its OWN bead hue for one engraved look:
-  // dark beads get a pale shade + a dark halo (raised); light beads (orange, gold,
-  // spring, cyan, orchid — DARK_SET) get a deep shade + a light halo (recessed), so
-  // none reads as a flat white sticker or, worse, a black hole punched in the bead.
-  const GLYPH_COLOR = ['#f2c5cf', '#702900', '#695108', '#d2e9ce', '#086848', '#005e70', '#c5dbf2', '#d8c9ee', '#59174e'];
-  const DARK_SET = new Set([1, 2, 4, 5, 8]);
+  // Glyph fill is a tint of its own hue, but its LIGHT/DARK direction (DARK_SET) is
+  // chosen to MAXIMISE DIFFERENTIATION across beads, not for contrast on its own bead:
+  // the closest colour pairs (green/spring, cyan/blue, purple/orchid, red/orange,
+  // orange/gold, blue/purple) each get opposite glyph luminance, so the glyph is a
+  // real second channel telling similar beads apart. Legibility no longer depends on
+  // the fill because every glyph carries a contrasting OUTLINE (stroke, added at
+  // render) — light glyphs a dark outline, dark glyphs a light one.
+  const GLYPH_COLOR = ['#640219', '#f7e1d4', '#5f4a07', '#1f5016', '#d7f4ea', '#005566', '#d5e5f6', '#2b0c5a', '#efdcec'];
+  const DARK_SET = new Set([0, 2, 3, 5, 7]); // deep-tint (dark) glyph; others pale (light)
 
   // Per-tier colour SELECTION. The full 9-colour palette (styles.css) is separated
   // for maximum mutual ΔE, so every subset is already unambiguous — tiers just scale
@@ -221,11 +224,15 @@
         if (i === selected && isTop) bead.classList.add('lifted'); // lift the whole top run
         if (lastDrop && lastDrop.j === i && isTop) bead.classList.add(lastDrop.merged ? 'merging' : 'drop');
         const sym = document.createElement('span');
-        sym.className = DARK_SET.has(ci) ? 'sym sym-dark' : 'sym';
+        sym.className = 'sym';
         // Grow the glyph slightly with the glob so its mark stays proportionate to a
         // taller bead (a lone glyph looks lost in a 4-high run). Subtle: +7%/cell.
         sym.style.setProperty('--gs', (1 + 0.07 * (run.len - 1)).toFixed(3));
-        sym.innerHTML = '<svg viewBox="0 0 24 24" fill="' + GLYPH_COLOR[ci] + '" aria-hidden="true">' + (SHAPE[ci] || '') + '</svg>';
+        // Contrasting outline (behind the fill) carries legibility so the fill's
+        // light/dark can differentiate beads: dark glyph → light outline, and vice versa.
+        const stroke = DARK_SET.has(ci) ? 'rgba(255,255,255,.9)' : 'rgba(0,0,0,.6)';
+        sym.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="' + GLYPH_COLOR[ci] +
+          '" stroke="' + stroke + '" stroke-width="1.4" stroke-linejoin="round" paint-order="stroke">' + (SHAPE[ci] || '') + '</g></svg>';
         bead.appendChild(sym); // ONE glyph, geometry-centred in the run
         stack.appendChild(bead);
       }

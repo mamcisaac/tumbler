@@ -2,7 +2,11 @@
 (function () {
   'use strict';
   const E = window.TumblerEngine;
-  const SYM = ['◆', '●', '▲', '■', '★', '⬟', '✚', '⬢', '✳']; // per-colour glyph (accessibility); index 8 is hard-tier's 9th colour
+  // Per-colour glyph (a second, colour-blind- and low-light-safe channel on top
+  // of the bead colour). Nine distinct silhouettes; U+FE0E forces TEXT rendering
+  // so none of them ever falls back to a coloured emoji (the old '✳' rendered as
+  // a green emoji on some platforms, mismatching its tile).
+  const SYM = ['●', '▲', '■', '◆', '★', '♥', '✚', '⬢', '◐'].map((g) => g + '︎');
 
   // ── Shared arcade leaderboard (one client for the whole arcade) ───────────
   // Data layer + modal UI are the synced shared modules, loaded as classic
@@ -487,7 +491,9 @@
   // ── first-play tutorial (shared arcade carousel) ─────────────────────────
   function initTutorial() {
     if (!window.ArcadeTutorial) return;
-    const R = '#e6194B', O = '#f58231', Y = '#ffe119', G = '#3cb44b', C = '#42d4f4', B = '#4363d8', P = '#911eb4';
+    // Match the in-game bead palette (styles.css .c0–.c8) so the tutorial art
+    // reads as the real pieces.
+    const R = '#ef4444', O = '#f97316', Y = '#eab308', G = '#22c55e', C = '#14b8a6', B = '#6366f1', P = '#a855f7';
     const svg = (inner) => '<svg viewBox="0 0 170 92" width="180" xmlns="http://www.w3.org/2000/svg">' + inner + '</svg>';
     const shell = (x, w, h) => '<rect x="' + x + '" y="14" width="' + w + '" height="' + h + '" rx="11" fill="none" stroke="currentColor" stroke-width="2" opacity=".5"/>';
     const beads = (x, list, h) => { // bottom-up coloured beads inside a shell at column x

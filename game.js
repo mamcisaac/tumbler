@@ -225,11 +225,11 @@
         bead.style.borderRadius = R + 'px';
         bead.style.marginBottom = isBottom ? '0' : 'var(--gap)';
         // Contrast rim in the bead's own accent (light on DARK_SET beads, deep on the
-        // rest — so the closest colour pairs keep opposite-luminance edges). A thin 1px
-        // line softened by a faint blur so it stays subtle and transitions out of the
-        // bead colour. 8-digit hex adds the alpha (d9 ≈ .85, 99 ≈ .6).
+        // rest — so the closest colour pairs keep opposite-luminance edges). No edge line:
+        // a single wide, soft inset that fades gradually out of the bead colour, so it
+        // reads as a gentle transition, not an outline. 8-digit hex adds the alpha (66 ≈ .4).
         const acc = ACCENT[ci];
-        const rim = 'inset 0 0 0 1px ' + acc + 'd9, inset 0 0 3px ' + acc + '99';
+        const rim = 'inset 0 0 8px ' + acc + '66';
         bead.style.boxShadow = rim + ', inset 0 5px 7px rgba(255,255,255,.26), inset 0 -9px 12px rgba(0,0,0,.30)';
         if (i === selected && isTop) bead.classList.add('lifted'); // lift the whole top run
         if (lastDrop && lastDrop.j === i && isTop) bead.classList.add(lastDrop.merged ? 'merging' : 'drop');

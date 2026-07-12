@@ -2,20 +2,30 @@
 (function () {
   'use strict';
   const E = window.TumblerEngine;
-  // Per-colour glyph (a second, colour-blind- and low-light-safe channel on top
-  // of the bead colour). Nine distinct silhouettes forming one geometric language
-  // — no hearts or half-circles, every piece identifiable in isolation, ordered
-  // simple → complex so players learn "circle = red" not "random icon". U+FE0E
-  // forces TEXT rendering so none falls back to a coloured emoji (the old '✳'
-  // rendered as a green emoji on some platforms, mismatching its tile).
-  //   red ● · orange ▲ · gold ■ · green ◆ · spring ★ · cyan ✚ · blue ⬢ · purple ⬟ · orchid ✦
-  const SYM = ['●', '▲', '■', '◆', '★', '✚', '⬢', '⬟', '✦'].map((g) => g + '︎');
-
-  // Light beads (Lab L > ~75: gold, spring, cyan) would strain a white glyph, so
-  // they carry a dark one instead — tinted to a DEEP SHADE OF THEIR OWN HUE, not
-  // flat black (a black glyph on yellow reads as a punched-through hole). With the
-  // light halo from .sym-dark this gives an engraved look. Palette index → colour.
-  const DARK_GLYPH = { 2: '#6e5200', 4: '#0b6248', 5: '#0a5e78' };
+  // Per-colour glyph (a second, colour-blind- and low-light-safe channel on top of
+  // the bead colour). Nine distinct silhouettes forming one geometric language — no
+  // hearts or half-circles, every piece identifiable in isolation, ordered simple →
+  // complex so players learn "circle = red" not "random icon". Drawn as inline SVG,
+  // each centred by GEOMETRY in a 24×24 box: pixel-perfect centring on every platform
+  // (text glyphs sat low and shifted with the system font) and no emoji fallback.
+  //   ● red · ▲ orange · ■ gold · ◆ green · ★ spring · ✚ cyan · ⬢ blue · ⬟ purple · ✦ orchid
+  const SHAPE = [
+    '<circle cx="12" cy="12" r="7.4"/>',
+    '<polygon points="12,4.8 19.45,17.7 4.55,17.7"/>',
+    '<rect x="4.6" y="4.6" width="14.8" height="14.8" rx="1.7"/>',
+    '<polygon points="12,2.7 21.3,12 12,21.3 2.7,12"/>',
+    '<polygon points="12,3.1 14.17,9.01 20.46,9.25 15.52,13.14 17.23,19.2 12,15.7 6.77,19.2 8.48,13.14 3.54,9.25 9.83,9.01"/>',
+    '<path d="M9.6 3.4 h4.8 v6.2 h6.2 v4.8 h-6.2 v6.2 h-4.8 v-6.2 h-6.2 v-4.8 h6.2 z"/>',
+    '<polygon points="16.3,4.55 20.6,12 16.3,19.45 7.7,19.45 3.4,12 7.7,4.55"/>',
+    '<polygon points="12,4.8 20.27,10.81 17.11,20.54 6.89,20.54 3.73,10.81"/>',
+    '<polygon points="12,2.3 14.12,9.88 21.7,12 14.12,14.12 12,21.7 9.88,14.12 2.3,12 9.88,9.88"/>',
+  ];
+  // Every glyph is filled with a tint of its OWN bead hue for one engraved look:
+  // dark beads get a pale shade + a dark halo (raised); light beads (orange, gold,
+  // spring, cyan, orchid — DARK_SET) get a deep shade + a light halo (recessed), so
+  // none reads as a flat white sticker or, worse, a black hole punched in the bead.
+  const GLYPH_COLOR = ['#f2c5cf', '#702900', '#695108', '#d2e9ce', '#086848', '#005e70', '#c5dbf2', '#d8c9ee', '#59174e'];
+  const DARK_SET = new Set([1, 2, 4, 5, 8]);
 
   // Per-tier colour SELECTION. The full 9-colour palette (styles.css) is separated
   // for maximum mutual ΔE, so every subset is already unambiguous — tiers just scale
@@ -206,10 +216,10 @@
         bead.style.boxShadow = 'inset 0 5px 7px rgba(255,255,255,.26), inset 0 -9px 12px rgba(0,0,0,.30)';
         if (i === selected && isTop) bead.classList.add('lifted'); // lift the whole top run
         if (lastDrop && lastDrop.j === i && isTop) bead.classList.add(lastDrop.merged ? 'merging' : 'drop');
-        const sym = document.createElement('span'); const dg = DARK_GLYPH[ci];
-        sym.className = dg ? 'sym sym-dark' : 'sym'; if (dg) sym.style.color = dg;
-        sym.textContent = SYM[ci] || '';
-        bead.appendChild(sym); // ONE symbol, centred in the run
+        const sym = document.createElement('span');
+        sym.className = DARK_SET.has(ci) ? 'sym sym-dark' : 'sym';
+        sym.innerHTML = '<svg viewBox="0 0 24 24" fill="' + GLYPH_COLOR[ci] + '" aria-hidden="true">' + (SHAPE[ci] || '') + '</svg>';
+        bead.appendChild(sym); // ONE glyph, geometry-centred in the run
         stack.appendChild(bead);
       }
       // after a flip the beads fall down into place

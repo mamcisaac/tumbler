@@ -26,14 +26,14 @@
     '<polygon points="12,3 21,12 12,21 3,12"/>',
     '<polygon points="12,3.2 20.66,18.2 3.34,18.2"/>',
   ];
-  // Glyph fill is a tint of its own hue, but its LIGHT/DARK direction (DARK_SET) is
-  // chosen to MAXIMISE DIFFERENTIATION across beads, not for contrast on its own bead:
-  // the closest colour pairs (green/spring, cyan/blue, purple/orchid, red/orange,
-  // orange/gold, blue/purple) each get opposite glyph luminance, so the glyph is a
-  // real second channel telling similar beads apart. Legibility no longer depends on
-  // the fill because every glyph carries a contrasting OUTLINE (stroke, added at
-  // render) — light glyphs a dark outline, dark glyphs a light one.
-  const GLYPH_COLOR = ['#640219', '#fbccb1', '#5f4a07', '#1f5016', '#b8f4e0', '#005566', '#b5d6f8', '#411287', '#ebc2e4'];
+  // Glyph fill carries the COLOUR — a saturated shade of the bead's own hue, whose
+  // LIGHT/DARK direction (DARK_SET) is chosen to MAXIMISE DIFFERENTIATION across beads,
+  // not for own-bead contrast: the closest colour pairs (green/spring, cyan/blue,
+  // purple/orchid, red/orange, orange/gold, blue/purple) each get opposite glyph
+  // luminance. Legibility + shape sharpness come from a bold NEUTRAL outline (white on
+  // the dark glyphs, black on the light ones — see render), so the fill is free to be
+  // fully chromatic and the silhouette reads crisply.
+  const GLYPH_COLOR = ['#660018', '#fbccb1', '#664e00', '#106600', '#b8f4e0', '#005566', '#b5d6f8', '#3d0099', '#ebc2e4'];
   const DARK_SET = new Set([0, 2, 3, 5, 7]); // deep-tint (dark) glyph; others pale (light)
   // Per-bead rim accent — a LIGHT shade of the bead's own hue for the DARK_SET beads
   // and a DEEP shade for the rest, so each tile's edge is a light/dark accent OF its
@@ -240,14 +240,14 @@
         // Grow the glyph slightly with the glob so its mark stays proportionate to a
         // taller bead (a lone glyph looks lost in a 4-high run). Subtle: +7%/cell.
         sym.style.setProperty('--gs', (1 + 0.07 * (run.len - 1)).toFixed(3));
-        // Crisp outline (behind the fill) carries legibility so the fill's light/dark can
-        // differentiate beads. Tinted to the bead's ACCENT (same colour as the rim) rather
-        // than neutral white/black — it stays a light accent on dark glyphs and a deep one
-        // on light glyphs, so it still contrasts the fill while harmonising with the rim.
-        // MITER join keeps polygon vertices sharp (a round join softened the pentagon/
-        // hexagon into circle-like blobs); miterlimit keeps the star/spark points from bevelling.
+        // Bold NEUTRAL outline (behind the fill) for maximum silhouette contrast: white on
+        // the dark glyphs, black on the light ones. Neutral (not a hue) so the edge is as
+        // sharp as possible regardless of fill; the colour lives entirely on the fill. MITER
+        // join keeps polygon vertices sharp (a round join softened the pentagon/hexagon into
+        // circle-like blobs); miterlimit keeps the star/spark points from bevelling.
+        const stroke = DARK_SET.has(ci) ? '#ffffff' : '#000000';
         sym.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="' + GLYPH_COLOR[ci] +
-          '" stroke="' + ACCENT[ci] + '" stroke-width="1.5" stroke-linejoin="miter" stroke-miterlimit="6" paint-order="stroke">' + (SHAPE[ci] || '') + '</g></svg>';
+          '" stroke="' + stroke + '" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="6" paint-order="stroke">' + (SHAPE[ci] || '') + '</g></svg>';
         bead.appendChild(sym); // ONE glyph, geometry-centred in the run
         stack.appendChild(bead);
       }

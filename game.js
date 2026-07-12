@@ -9,16 +9,19 @@
   // each centred by GEOMETRY in a 24×24 box: pixel-perfect centring on every platform
   // (text glyphs sat low and shifted with the system font) and no emoji fallback.
   //   ● red · ▲ orange · ■ gold · ◆ green · ★ spring · ✚ cyan · ⬢ blue · ⬟ purple · ✦ orchid
+  // Shapes are tuned for consistent OPTICAL weight — a compact square reads smaller
+  // than a diamond of the same bounding box, so solids (triangle/square/pentagon) are
+  // grown and spread shapes (diamond) eased until all nine look the same size.
   const SHAPE = [
-    '<circle cx="12" cy="12" r="7.4"/>',
-    '<polygon points="12,4.8 19.45,17.7 4.55,17.7"/>',
-    '<rect x="4.6" y="4.6" width="14.8" height="14.8" rx="1.7"/>',
-    '<polygon points="12,2.7 21.3,12 12,21.3 2.7,12"/>',
-    '<polygon points="12,3.1 14.17,9.01 20.46,9.25 15.52,13.14 17.23,19.2 12,15.7 6.77,19.2 8.48,13.14 3.54,9.25 9.83,9.01"/>',
-    '<path d="M9.6 3.4 h4.8 v6.2 h6.2 v4.8 h-6.2 v6.2 h-4.8 v-6.2 h-6.2 v-4.8 h6.2 z"/>',
-    '<polygon points="16.3,4.55 20.6,12 16.3,19.45 7.7,19.45 3.4,12 7.7,4.55"/>',
-    '<polygon points="12,4.8 20.27,10.81 17.11,20.54 6.89,20.54 3.73,10.81"/>',
-    '<polygon points="12,2.3 14.12,9.88 21.7,12 14.12,14.12 12,21.7 9.88,14.12 2.3,12 9.88,9.88"/>',
+    '<circle cx="12" cy="12" r="7.3"/>',
+    '<polygon points="12,3.2 20.66,18.2 3.34,18.2"/>',
+    '<rect x="3.7" y="3.7" width="16.6" height="16.6" rx="2"/>',
+    '<polygon points="12,3 21,12 12,21 3,12"/>',
+    '<polygon points="12,2.7 14.29,8.84 20.84,9.13 15.71,13.21 17.47,19.52 12,15.9 6.53,19.52 8.29,13.21 3.16,9.13 9.71,8.84"/>',
+    '<path d="M9.7 3.7 h4.6 v6.0 h6.0 v4.6 h-6.0 v6.0 h-4.6 v-6.0 h-6.0 v-4.6 h6.0 z"/>',
+    '<polygon points="16.35,4.47 20.7,12 16.35,19.53 7.65,19.53 3.3,12 7.65,4.47"/>',
+    '<polygon points="12,3.7 21.04,10.26 17.58,20.89 6.42,20.89 2.96,10.26"/>',
+    '<polygon points="12,2.1 14.83,9.17 21.9,12 14.83,14.83 12,21.9 9.17,14.83 2.1,12 9.17,9.17"/>',
   ];
   // Every glyph is filled with a tint of its OWN bead hue for one engraved look:
   // dark beads get a pale shade + a dark halo (raised); light beads (orange, gold,

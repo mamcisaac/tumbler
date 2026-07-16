@@ -171,6 +171,7 @@
     CAP = tier.cap || PUZZLES.capacity || 4;   // tube height varies per tier (depth ramp)
     COLS = tier.cols || Math.ceil(tier.tubes / 2);
     boardEl.style.setProperty('--cols', COLS);
+    boardEl.style.setProperty('--cap', CAP);   // tumblers stand exactly CAP beads tall
     initial = p.tubes.map((t) => t.slice());
     par = p.par || 0;
     $('parVal').textContent = par || '–';
@@ -440,7 +441,7 @@
       statHtml: `${moves}<small> ${moves === 1 ? 'move' : 'moves'}</small>`,
       subHtml,
       detailHtml,
-      // Clearing the last tier finishes today's Tumbler → chain to the next daily.
+      // Clearing the last tier finishes today's Tumblers → chain to the next daily.
       dailyComplete: lastTier,
       gameSlug: GAME,
       // While a tier is left, advancing to it is the primary CTA; "Try again"
@@ -493,7 +494,7 @@
   // ── share ──────────────────────────────────────────────────────────────────
   function shareText(moves) {
     const lb = getLocalBest();
-    let s = `Tumbler — ${mode === 'daily' ? 'Daily ' + puzzleId : 'Practice'}\nSolved in ${moves} moves (par ${par})`;
+    let s = `Tumblers — ${mode === 'daily' ? 'Daily ' + puzzleId : 'Practice'}\nSolved in ${moves} moves (par ${par})`;
     if (mode === 'daily' && lb != null && lb < moves) s += `\nMy best: ${lb}`;
     s += `\nconnectthethoughts.ca/tumbler`;
     return s;

@@ -42,16 +42,15 @@
   const ACCENT = ['#f6b7c5', '#853100', '#f3e5ba', '#c9e9c3', '#097b55', '#b4edf9', '#034282', '#d1bdf0', '#691c5c'];
 
   // Per-tier colour SELECTION. The full 9-colour palette (styles.css) is separated
-  // for maximum mutual ΔE, so every subset is already unambiguous — tiers just scale
-  // the COUNT of colours (5 / 7 / 9) for combinatorial difficulty, not confusability.
+  // for maximum mutual ΔE. Under the DEPTH ramp every tier uses the SAME 7 colours
+  // (difficulty is tube height, not colour count), so all three map to one tuned
+  // 7-colour subset — red · orange · gold · green · cyan · blue · purple — dropping
+  // spring(4) and orchid(8), the two closest-neighbour hues, for maximum mutual ΔE.
   // Each entry maps a puzzle's stored logical colour k → an index into the master
-  // .c0–.c8 palette and SYM glyphs. Solve logic stays on the dense logical indices;
+  // .c0–.c8 palette and SHAPE glyphs. Solve logic stays on the dense logical indices;
   // this only changes what's drawn, so the same board data serves every tier.
-  const PALETTE = {
-    easy:   [0, 2, 3, 5, 6],                 // red · gold · green · cyan · blue
-    medium: [0, 1, 2, 3, 5, 6, 7],           // + orange · purple
-    hard:   [0, 1, 2, 3, 4, 5, 6, 7, 8],     // + spring · orchid (full set)
-  };
+  const SEVEN = [0, 1, 2, 3, 5, 6, 7];       // red · orange · gold · green · cyan · blue · purple
+  const PALETTE = { easy: SEVEN, medium: SEVEN, hard: SEVEN };
   const paletteIndex = (c) => { const m = PALETTE[difficulty]; return m && m[c] != null ? m[c] : c; };
 
   // ── Shared arcade leaderboard (one client for the whole arcade) ───────────
@@ -66,12 +65,14 @@
   const { submitMetricCompletion, reportStats, loadSharedHandle, saveSharedHandle } = LB;
 
   // ── difficulty tiers ───────────────────────────────────────────────────────
-  // Each daily ships three boards, all starting from one empty tumbler + full
-  // colour tubes, laid out as a 2×N grid (see empty-tube-study.md):
-  //   easy   5+1 → 6 tubes (2×3)   medium 7+1 → 8 tubes (2×4)   hard 9+1 → 10 (2×5)
-  // Same easy→medium→hard run as the rest of the arcade: solving one tier
-  // advances to the next, and clearing all three completes the daily (which
-  // chains to the next arcade game via the shared results card).
+  // Each daily ships three boards. Difficulty is a DEPTH ramp: all three use the
+  // SAME 7 colours + 1 empty (8 tubes, 2×4), and only the tube HEIGHT (beads per
+  // colour, `cap`) grows — easy K=3, medium K=4, hard K=5. Taller stacks bury
+  // colours deeper, so the signature Rotate mechanic does more work as you climb
+  // (see tube-size-study.mjs). Same easy→medium→hard run as the rest of the
+  // arcade: solving one tier advances to the next, and clearing all three
+  // completes the daily (which chains to the next arcade game via the shared
+  // results card).
   const DIFFS = ['easy', 'medium', 'hard'];
   const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   // Leaderboard labels include the arcade-standard aggregate 'Total' row/tab
@@ -120,10 +121,11 @@
     const d = new Date(dayNum * 86400000);
     return d.getUTCFullYear() + '-' + (d.getUTCMonth() + 1) + '-' + d.getUTCDate();
   }
-  // Namespaced leaderboard board key for a daily date + difficulty. The `d2|`
-  // prefix starts a fresh board generation (the one-empty tiers aren't
-  // comparable to the old single-board scores under `d1|`).
-  function dailyBoardKey(diff, dateStr) { return 'd2|' + diff + '|' + dateStr; }
+  // Namespaced leaderboard board key for a daily date + difficulty. The `d4|`
+  // prefix starts a fresh board generation: the depth-ramp tiers (7 colours ×
+  // K=3/4/5) aren't move-comparable to any earlier design — the single-board
+  // `d1|`, the 5/7/9 `d2|`, nor the short-lived 6/7/8 `d3|`.
+  function dailyBoardKey(diff, dateStr) { return 'd4|' + diff + '|' + dateStr; }
   function tierPool(diff) { return PUZZLES.tiers[diff].puzzles; }
   // Which board a tier serves for a given date key (defaults to the active
   // daily date, honouring any archive replay). One date drives all three tiers.
@@ -166,8 +168,8 @@
     $('bestChip').hidden = true;
   }
   function loadPuzzle(tier, p) {
-    CAP = PUZZLES.capacity || 4;
-    COLS = tier.cols || (tier.tubes / 2);
+    CAP = tier.cap || PUZZLES.capacity || 4;   // tube height varies per tier (depth ramp)
+    COLS = tier.cols || Math.ceil(tier.tubes / 2);
     boardEl.style.setProperty('--cols', COLS);
     initial = p.tubes.map((t) => t.slice());
     par = p.par || 0;
@@ -386,7 +388,7 @@
     // board; the shared read dedupes each handle to its best (fewest moves).
     // Arcade standard: post to the daily board AND a fresh all-time board
     // (alltime2|<diff>) so the modal's All-time tab populates. Ranks by moves.
-    await submitMetricCompletion({ game: GAME, difficulty, value: moves, handle: getHandle(), board: dailyBoardKey(difficulty, puzzleId), meta: { par, difficulty }, alltimeVersion: 2 });
+    await submitMetricCompletion({ game: GAME, difficulty, value: moves, handle: getHandle(), board: dailyBoardKey(difficulty, puzzleId), meta: { par, difficulty }, alltimeVersion: 4 });
     await submitTotalIfComplete();
     showResults(moves, getLocalBest());
   }
@@ -400,7 +402,7 @@
   async function submitTotalIfComplete() {
     const total = dayTotal();
     if (total == null) return;
-    await submitMetricCompletion({ game: GAME, difficulty: 'total', value: total, handle: getHandle(), board: dailyBoardKey('total', puzzleId), meta: { difficulty: 'total' }, alltimeVersion: 2 });
+    await submitMetricCompletion({ game: GAME, difficulty: 'total', value: total, handle: getHandle(), board: dailyBoardKey('total', puzzleId), meta: { difficulty: 'total' }, alltimeVersion: 4 });
   }
 
   // Shared arcade results card, mounted inside the existing #resultsModal.
@@ -483,7 +485,7 @@
     rowStat: (r) => `${(r.meta && r.meta.value != null) ? r.meta.value : r.score}<small> mv</small>`,
     youRow: (best) => `${best.value != null ? best.value : best.moves}<small> mv</small>`,
     youHead: 'Your best by difficulty',
-    alltimeVersion: 2,
+    alltimeVersion: 4,
     bestComparator: (e, cur) => (e.value != null ? e.value : e.moves) < (cur.value != null ? cur.value : cur.moves),
     youStats: { metricLabel: 'Moves', buckets: [{ label: '≤12', max: 12 }, { label: '13–20', max: 20 }, { label: '21–30', max: 30 }, { label: '31+' }] },
   });

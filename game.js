@@ -326,9 +326,13 @@
   function restart() { if (!animating) resetToInitial(); }
 
   function afterMove() { updateHud(); render(); checkWin(); }
+  // Moves readout: shared ArcadeMetricCounter (tally kind) adopting the game's
+  // own HUD markup — tumbler keeps its big-number skin, the logic is shared.
+  let hudMoves = null;
   function updateHud() {
     const el = $('moveCount');
-    el.textContent = moveCount;
+    if (!hudMoves) hudMoves = window.ArcadeMetricCounter.createMetricCounter({ els: { root: el.parentElement, value: el }, kind: 'tally' });
+    hudMoves.set(moveCount);
     el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
     $('undoBtn').disabled = history.length === 0;
   }

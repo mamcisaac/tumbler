@@ -104,7 +104,7 @@
   // predates the shared Day-N epoch, so it keeps its original days-since-1970
   // numbering (switching to ArcadeDailySeed.dailyDayNumber would change which
   // puzzle today's rotation lands on); only the DATE KEY comes from the shared
-  // module, which makes the daily archive-replayable (window.__archiveDateKey).
+  // module, which makes the daily archive-replayable (ArcadeArchive helpers).
   function dayNumFromKey(key) {
     const p = String(key).split('-').map(Number);
     return Math.floor(Date.UTC(p[0], p[1] - 1, p[2]) / 86400000);
@@ -144,12 +144,12 @@
     $('puzzleLabel').textContent = 'Daily · ' + puzzleId;
     refreshBestChip();
   }
-  // Archive replay: seed today's rotation from a past local date. Setting
-  // window.__archiveDateKey makes dailyDateKey() (and thus startDaily's day
-  // number, label, best-chip key + daily board key) resolve to that day; a
-  // manual mode switch clears it (see setMode) to return to today.
+  // Archive replay: seed today's rotation from a past local date. Entering the
+  // archive makes dailyDateKey() (and thus startDaily's day number, label,
+  // best-chip key + daily board key) resolve to that day; a manual mode switch
+  // exits it (see setMode) to return to today.
   function loadDailyForDate(dateKey) {
-    window.__archiveDateKey = dateKey;
+    window.ArcadeArchive.enterArchiveDate(dateKey);
     setModeUI('daily');
     startDaily();
   }
@@ -416,7 +416,7 @@
   // best) with Share alongside, exactly as before.
   function showResults(moves, localBest) {
     const practice = mode === 'practice';
-    const replay = !practice && !!window.__archiveDateKey;
+    const replay = !practice && window.ArcadeArchive.isArchiving();
     const progress = !practice && !replay;          // live daily → tier progression
     // Standard arcade run: advancing to the next tier is the primary action;
     // clearing the last tier (hard) completes the daily and chains to the next
@@ -650,7 +650,7 @@
   }
   function setMode(m) {
     // A manual mode switch always leaves any archive replay behind (back to today).
-    delete window.__archiveDateKey;
+    window.ArcadeArchive.exitArchive();
     setModeUI(m);
     if (m === 'daily') startDaily(); else startPractice();
   }

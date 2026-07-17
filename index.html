@@ -81,11 +81,8 @@
       <div class="puzzle-label" id="puzzleLabel">Daily</div>
     </div>
 
-    <div class="diff-row" role="group" aria-label="Difficulty">
-      <button class="diff-btn active" data-diff="easy" type="button" aria-pressed="true">Easy<span class="diff-sub">3 deep</span></button>
-      <button class="diff-btn" data-diff="medium" type="button" aria-pressed="false">Medium<span class="diff-sub">4 deep</span></button>
-      <button class="diff-btn" data-diff="hard" type="button" aria-pressed="false">Hard<span class="diff-sub">5 deep</span></button>
-    </div>
+    <!-- Difficulty tiers are rendered by the shared ArcadeDifficulty picker. -->
+    <div class="diff-row" id="diffRow" role="group" aria-label="Difficulty"></div>
 
     <div class="hud">
       <div class="hud-moves">
@@ -212,6 +209,8 @@
   <script src="arcade-daily-seed.js?v=5b6d533a"></script>
   <!-- Shared live metric counter (window.ArcadeMetricCounter) — before game.js. -->
   <script src="arcade-metric-counter.js?v=eac3fd1d"></script>
+  <!-- Shared difficulty picker (window.ArcadeDifficulty) — builds #diffRow before game.js. -->
+  <script src="arcade-difficulty.js?v=1adfbd63"></script>
   <script src="arcade-tutorial.js?v=511b18f1"></script>
   <script src="engine.js?v=8"></script>
   <script src="game.js?v=52"></script>

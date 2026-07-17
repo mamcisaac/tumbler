@@ -109,12 +109,6 @@
     const p = String(key).split('-').map(Number);
     return Math.floor(Date.UTC(p[0], p[1] - 1, p[2]) / 86400000);
   }
-  // Today's day number (never the archive-replay date) — anchors the
-  // leaderboard modal's day-nav offsets.
-  function localDayNum() {
-    const d = new Date();
-    return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
-  }
   function localDateStr(dayNum) {
     // dayNum encodes a local calendar day as its UTC-midnight instant, so UTC
     // getters recover exactly that calendar day.
@@ -473,20 +467,17 @@
   // The factory owns the modal (Today/All-time/You scope tabs + Easy/Medium/Hard
   // difficulty tabs + day-nav) and the post-win standings; dedup-to-best-per-
   // handle happens on read inside fetchTop.
-  function lbDayLabel(offset) {
-    if (offset === 0) return 'Today';
-    if (offset === 1) return 'Yesterday';
-    const d = new Date(); d.setDate(d.getDate() - offset);
-    return d.toLocaleDateString('en', { month: 'short', day: 'numeric' });
-  }
   const lbUi = window.ArcadeLeaderboardUI.createLeaderboardModal({
     gameSlug: GAME,
     difficulties: DIFFS,
     diffLabel: LB_DIFF_LABEL,
     getDifficulty: () => difficulty,
     getHandle: () => getHandle() || null,
-    boardKeyForOffset: (offset, diff) => dailyBoardKey(diff, localDateStr(localDayNum() - offset)),
-    dayLabelForOffset: lbDayLabel,
+    // Day-nav board key anchored on the PLAYED day (archive-aware): dailyDateKey()
+    // is today's daily, or the past daily being replayed, so a past daily's
+    // leaderboard shows its own board — not today's. offset walks back from there.
+    boardKeyForOffset: (offset, diff) => dailyBoardKey(diff, localDateStr(dayNumFromKey(window.ArcadeDailySeed.dailyDateKey()) - offset)),
+    baseDateKey: () => window.ArcadeDailySeed.dailyDateKey(),
     rowStat: (r) => `${(r.meta && r.meta.value != null) ? r.meta.value : r.score}<small> mv</small>`,
     youRow: (best) => `${best.value != null ? best.value : best.moves}<small> mv</small>`,
     youHead: 'Your best by difficulty',

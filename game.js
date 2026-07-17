@@ -85,6 +85,7 @@
   let board = [], initial = [], history = [], moveCount = 0;
   let selected = -1, mode = 'daily', puzzleId = '', par = 0, difficulty = 'easy';
   let lastDrop = null, animating = false, solvedAlready = false;
+  let picker = null;   // shared window.ArcadeDifficulty picker (built in wire())
 
   const $ = (id) => document.getElementById(id);
   const boardEl = $('board');
@@ -151,6 +152,14 @@
   // local best exists for that date under one of the difficulties.
   function isDayDone(dateKey) {
     return DIFFS.some((d) => getLocalBest(d, dateKey) != null);
+  }
+  // Arcade convention: entering the daily snaps to the FIRST tier with no result
+  // recorded for TODAY's daily (Easy when the day is fresh) — not the last-played
+  // tier. The date key comes from the shared seed, so an archive replay resolves
+  // to the replayed day's first-unsolved tier naturally.
+  function firstUnsolvedDiff() {
+    const dateKey = window.ArcadeDailySeed.dailyDateKey();
+    return DIFFS.find((d) => getLocalBest(d, dateKey) == null) || 'easy';
   }
   function startPractice() {
     mode = 'practice';
@@ -381,14 +390,18 @@
     recordHistory(moves);
     refreshBestChip();
 
-    if (!getHandle()) { await promptName(); }
-    reportStats(GAME);   // unified launcher-card stat (solves + streak)
-    // Record EVERY completion (not just improvements) so all scores show on the
-    // board; the shared read dedupes each handle to its best (fewest moves).
-    // Arcade standard: post to the daily board AND a fresh all-time board
-    // (alltime2|<diff>) so the modal's All-time tab populates. Ranks by moves.
-    await submitMetricCompletion({ game: GAME, difficulty, value: moves, handle: getHandle(), board: dailyBoardKey(difficulty, puzzleId), meta: { par, difficulty }, alltimeVersion: 4 });
-    await submitTotalIfComplete();
+    // A past/random daily replay (archive) is read-only — never submit; the
+    // modal still shows that day's board. Submissions are the live first-play only.
+    if (!window.ArcadeArchive.isArchiving()) {
+      if (!getHandle()) { await promptName(); }
+      reportStats(GAME);   // unified launcher-card stat (solves + streak)
+      // Record EVERY completion (not just improvements) so all scores show on the
+      // board; the shared read dedupes each handle to its best (fewest moves).
+      // Arcade standard: post to the daily board AND a fresh all-time board
+      // (alltime2|<diff>) so the modal's All-time tab populates. Ranks by moves.
+      await submitMetricCompletion({ game: GAME, difficulty, value: moves, handle: getHandle(), board: dailyBoardKey(difficulty, puzzleId), meta: { par, difficulty }, alltimeVersion: 4 });
+      await submitTotalIfComplete();
+    }
     showResults(moves, getLocalBest());
   }
 
@@ -609,8 +622,14 @@
     $('restartBtn').addEventListener('click', restart);
     $('modeDaily').addEventListener('click', () => { setMode('daily'); });
     $('modePractice').addEventListener('click', () => { setMode('practice'); });
-    document.querySelectorAll('.diff-btn').forEach((btn) => {
-      btn.addEventListener('click', () => { if (btn.dataset.diff !== difficulty) setDifficulty(btn.dataset.diff); });
+    // Difficulty row: the shared vended picker (aria-pressed/active handled inside).
+    picker = window.ArcadeDifficulty.createDifficulty({
+      container: $('diffRow'),
+      difficulties: DIFFS,
+      current: difficulty,
+      labels: DIFF_LABEL,
+      subs: { easy: '3 deep', medium: '4 deep', hard: '5 deep' },
+      onSelect: setDifficulty,
     });
     lbUi.wire();   // shared factory owns the #lbButton + #lb-modal (Today/All-time/You + Easy/Medium/Hard tabs, day-nav)
     // Reveal + wire the hidden topbar archive button (past daily puzzles).
@@ -643,32 +662,31 @@
     // A manual mode switch always leaves any archive replay behind (back to today).
     window.ArcadeArchive.exitArchive();
     setModeUI(m);
-    if (m === 'daily') startDaily(); else startPractice();
-  }
-  function setDiffUI(d) {
-    document.querySelectorAll('.diff-btn').forEach((b) => {
-      const on = b.dataset.diff === d;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-pressed', on);
-    });
-  }
-  function loadDifficulty() {
-    try { const d = localStorage.getItem(DIFF_KEY); if (DIFFS.indexOf(d) >= 0) return d; } catch (_) {}
-    return 'easy';
+    if (m === 'daily') {
+      // Entering the daily overrides any last-played tier: snap to today's
+      // first-unsolved tier (arcade convention), then load it.
+      difficulty = firstUnsolvedDiff();
+      if (picker) picker.sync(difficulty);
+      startDaily();
+    } else startPractice();
   }
   function setDifficulty(d) {
     if (DIFFS.indexOf(d) < 0) return;
     difficulty = d;
+    // Persist the last-played tier (practice-mode continuity); daily entry
+    // overrides it via firstUnsolvedDiff().
     try { localStorage.setItem(DIFF_KEY, d); } catch (_) {}
-    setDiffUI(d);
+    if (picker) picker.sync(d);
     if (mode === 'daily') startDaily(); else startPractice();
   }
 
   // ── boot ─────────────────────────────────────────────────────────────────────
   fetch('puzzles.json?v=2').then((r) => r.json()).then((data) => {
     PUZZLES = data;
-    difficulty = loadDifficulty();
-    setDiffUI(difficulty);
+    // Daily is the boot mode: open on today's first-unsolved tier (arcade
+    // convention), not the last-played one. wire() builds the picker from
+    // this value, so set it first.
+    difficulty = firstUnsolvedDiff();
     wire(); startDaily(); initTutorial();
   }).catch((err) => {
     boardEl.innerHTML = '<div class="lb-status">Could not load puzzles. Refresh to try again.</div>';

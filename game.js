@@ -115,11 +115,13 @@
   let PUZZLES = null, CAP = 4, COLS = 5;
   // history holds one {board, move} entry per move still "live" in the run: the
   // board BEFORE the move, and the move itself in the engine's descriptor shape
-  // ({type:'pour', i, j, n} / {type:'rotate'}). One array carries both the undo
-  // snapshots and the move record (which is how the results card finds "the
-  // first pour" — see firstPourBead). redoStack mirrors it forward: undo() moves
-  // an entry across (with the board it's leaving), redo() moves it back.
-  let board = [], initial = [], history = [], moveCount = 0;
+  // ({type:'pour', i, j, n} / {type:'rotate'}). One array carries the undo
+  // snapshots, the move record (how the results card finds "the first pour" —
+  // see firstPourBead), AND the move count: the tally shown/submitted is simply
+  // history.length, so undo is free by construction (it removes the move).
+  // redoStack mirrors history forward: undo() moves an entry across (with the
+  // board it's leaving), redo() moves it back.
+  let board = [], initial = [], history = [];
   let redoStack = [];
   let selected = -1, mode = 'daily', puzzleId = '', par = 0, difficulty = 'easy';
   let lastDrop = null, animating = false, solvedAlready = false;
@@ -128,7 +130,7 @@
   const $ = (id) => document.getElementById(id);
   const boardEl = $('board');
   // The two buttons the stuck-nudge decorates — looked up once, like boardEl
-  // (updateHints runs after every move).
+  // (render refreshes them on every repaint).
   const rotateBtn = $('rotateBtn'), restartBtn = $('restartBtn');
 
   // ── handle ───────────────────────────────────────────────────────────────
@@ -223,7 +225,7 @@
   }
   function resetToInitial() {
     board = E.clone(initial);
-    history = []; redoStack = []; moveCount = 0; selected = -1; lastDrop = null; solvedAlready = false;
+    history = []; redoStack = []; selected = -1; lastDrop = null; solvedAlready = false;
     updateHud(); render();
   }
 
@@ -247,15 +249,15 @@
     const R = 11;
     // Hints (feature: move outlining) are gated on the player's preference and
     // switched off entirely once the board is solved — no point outlining a
-    // finished puzzle.
+    // finished puzzle. ALL hint surfaces (tube outlines here, the rotate/restart
+    // nudge at the bottom) repaint in this one pass, from this one legal-move
+    // enumeration, so no path can refresh one surface and leave another stale.
     const hl = effectiveHighlight() && !solvedAlready;
-    // Tubes with an outgoing legal pour (the engine's own move enumeration) —
-    // only meaningful (and only shown) with nothing picked up yet; once
-    // something's selected, is-target already marks the legal TARGETS, so
-    // has-move would be redundant noise.
-    const hasMove = (hl && selected < 0)
-      ? new Set(E.legalPours(board, CAP).map((p) => p.i))
-      : null;
+    const pours = hl ? E.legalPours(board, CAP) : null;
+    // Tubes with an outgoing legal pour — only meaningful (and only shown) with
+    // nothing picked up yet; once something's selected, is-target already marks
+    // the legal TARGETS, so has-move would be redundant noise.
+    const hasMove = (pours && selected < 0) ? new Set(pours.map((p) => p.i)) : null;
     board.forEach((tube, i) => {
       const urn = document.createElement('div');
       urn.className = 'urn';
@@ -323,6 +325,17 @@
       urn.appendChild(stack);
       boardEl.appendChild(urn);
     });
+    // "You're stuck" nudge — only when NO pour exists anywhere on the board (a
+    // genuine dead end, not just "you haven't picked one up yet"): Rotate is
+    // suggested if flipping would open a pour; Restart only if even the flipped
+    // board is stuck. Never both — always clear first, so a repaint with hints
+    // off (or after a solve) also clears any lit nudge.
+    rotateBtn.classList.remove('suggest');
+    restartBtn.classList.remove('suggest');
+    if (pours && !pours.length) {
+      if (E.legalPours(E.rotate(board), CAP).length) rotateBtn.classList.add('suggest');
+      else restartBtn.classList.add('suggest');
+    }
     lastDrop = null;
   }
 
@@ -347,7 +360,7 @@
     const merged = board[j].length > 0; // pour requires matching top or empty -> non-empty means it fuses
     pushHistory({ type: 'pour', i: i, j: j, n: n });
     board = E.pour(board, i, j, CAP);
-    moveCount++; selected = -1; lastDrop = { j: j, n: n, merged: merged };
+    selected = -1; lastDrop = { j: j, n: n, merged: merged };
     redoStack.length = 0; // a fresh move invalidates any redo
     afterMove();
   }
@@ -357,7 +370,7 @@
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const finish = () => {
       pushHistory({ type: 'rotate' });
-      board = E.rotate(board); moveCount++;
+      board = E.rotate(board);
       redoStack.length = 0;
       render({ fall: true }); // upright tumblers, reversed data, beads fall into place
       animating = false; updateHud(); checkWin();
@@ -374,7 +387,6 @@
     const entry = history.pop();
     redoStack.push({ board: E.clone(board), move: entry.move });
     board = entry.board;
-    moveCount = Math.max(0, moveCount - 1); // remove the undone move; undo itself is free
     selected = -1; updateHud(); render();
   }
   function redo() {
@@ -382,7 +394,7 @@
     const entry = redoStack.pop();
     pushHistory(entry.move);
     board = entry.board;
-    moveCount++; selected = -1;
+    selected = -1;
     updateHud(); render(); checkWin();
   }
   function restart() { if (!animating) resetToInitial(); }
@@ -391,9 +403,7 @@
   // null for a run with no pour recorded. Feeds the startBead submission meta.
   function firstPourBead() {
     const e = history.find((h) => h.move.type === 'pour');
-    if (!e) return null;
-    const t = e.board[e.move.i];
-    return paletteIndex(t[t.length - 1]);
+    return e ? paletteIndex(E.topRun(e.board[e.move.i]).color) : null;
   }
 
   function afterMove() { updateHud(); render(); checkWin(); }
@@ -403,24 +413,10 @@
   function updateHud() {
     const el = $('moveCount');
     if (!hudMoves) hudMoves = window.ArcadeMetricCounter.createMetricCounter({ els: { root: el.parentElement, value: el }, kind: 'tally' });
-    hudMoves.set(moveCount);
+    hudMoves.set(history.length);
     el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
     $('undoBtn').disabled = history.length === 0;
     $('redoBtn').disabled = redoStack.length === 0;
-    updateHints();
-  }
-  // "You're stuck" nudge — control-button state, like the disabled flags above.
-  // Only when NO pour exists anywhere on the board (a genuine dead end, not just
-  // "you haven't picked one up yet"): Rotate is suggested if flipping would open
-  // a pour; Restart only if even the flipped board is stuck. Never both — always
-  // clear first. Also re-run directly when the outlining pref flips (setHighlight).
-  function updateHints() {
-    rotateBtn.classList.remove('suggest');
-    restartBtn.classList.remove('suggest');
-    if (effectiveHighlight() && !solvedAlready && !E.legalPours(board, CAP).length) {
-      if (E.legalPours(E.rotate(board), CAP).length) rotateBtn.classList.add('suggest');
-      else restartBtn.classList.add('suggest');
-    }
   }
   function checkWin() { if (E.solved(board)) onSolved(); }
 
@@ -462,7 +458,7 @@
   async function onSolved() {
     solvedAlready = true; selected = -1; render();
     boardEl.classList.add('flash'); setTimeout(() => boardEl.classList.remove('flash'), 500);
-    const moves = moveCount;
+    const moves = history.length;
 
     if (mode === 'practice') { showResults(moves, null, null); return; }
 
@@ -593,7 +589,7 @@
     return s;
   }
   async function doShare() {
-    const txt = shareText(moveCount);
+    const txt = shareText(history.length);
     try {
       if (navigator.share) { await navigator.share({ text: txt }); return; }
     } catch (_) {}
@@ -629,7 +625,7 @@
   const HL_KEY = 'ctt.tumbler.highlightMoves';
   function getHLPref() { try { return localStorage.getItem(HL_KEY); } catch (_) { return null; } }
   function effectiveHighlight() { return getHLPref() !== 'off'; }
-  function setHighlight(on) { try { localStorage.setItem(HL_KEY, on ? 'on' : 'off'); } catch (_) {} updateHints(); render(); }
+  function setHighlight(on) { try { localStorage.setItem(HL_KEY, on ? 'on' : 'off'); } catch (_) {} render(); }
 
   // ── first-play tutorial (shared arcade carousel) ─────────────────────────
   function initTutorial() {
@@ -754,5 +750,5 @@
   });
 
   // read-only state hook (for diagnostics; no mutators exposed)
-  window.__tumbler = { state: () => ({ moveCount, par, mode, solved: E.solved(board) }) };
+  window.__tumbler = { state: () => ({ moveCount: history.length, par, mode, solved: E.solved(board) }) };
 })();

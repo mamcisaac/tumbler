@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="tokens.css?v=afb6be16">
   <link rel="stylesheet" href="chrome.css?v=20a1e1d2">
   <link rel="stylesheet" href="arcade-components.css?v=b06e6912">
-  <link rel="stylesheet" href="styles.css?v=23">
+  <link rel="stylesheet" href="styles.css?v=24">
   <!-- arcade:theme-boot:start -->
 <script>
   // Pre-paint theme bootstrap (sync-managed — edit in hub shared/, never here).
@@ -110,6 +110,11 @@
         </svg>
         <span>Undo</span>
       </button>
+      <button id="redoBtn" class="ctl ctl-redo" type="button" title="Redo" aria-label="Redo" disabled>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/>
+        </svg>
+      </button>
     </div>
     <div class="controls controls-restart">
       <button id="restartBtn" class="ctl ctl-ghost" type="button" title="Restart this puzzle">
@@ -187,17 +192,14 @@
         <li><b>Rotate:</b> the <b>Rotate</b> button turns the whole rack over — the <b>bottom of every tumbler becomes the top</b> and the beads fall. It's the only way to reach colours buried at the bottom.</li>
         <li><b>Every pour and every rotate costs one move.</b> Solve in as few moves as you can.</li>
         <li><b>Three boards a day:</b> Easy, Medium, then Hard — same colours each time, but the stacks get taller, so more is buried and you'll flip more to dig it out. Clear all three to finish today's Tumblers and move on to the next arcade daily.</li>
-        <li><b>Unlimited undo &amp; restart.</b> Unlike the rest of the arcade, you can replay the daily as often as you like — your <b>best</b> score is the one that counts, so keep trimming moves.</li>
+        <li><b>Unlimited undo, redo &amp; restart.</b> Unlike the rest of the arcade, you can replay the daily as often as you like — your <b>best</b> score is the one that counts, so keep trimming moves.</li>
       </ul>
       <label class="help-toggle">
         <input type="checkbox" id="highlightToggle">
-        <span>Highlight possible moves when I pick up a tumbler</span>
+        <span>Outline possible moves (and when to Rotate or Restart)</span>
       </label>
     </div>
   </div>
-
-  <!-- transient toast (e.g. when move highlights turn off) -->
-  <div id="toast" class="toast" role="status" hidden></div>
 
   <!-- Shared leaderboard data layer + modal UI (classic window globals; must load before game.js). -->
   <script src="arcade-leaderboard.js?v=b51ccf77"></script>
@@ -213,6 +215,6 @@
   <script src="arcade-difficulty.js?v=1adfbd63"></script>
   <script src="arcade-tutorial.js?v=511b18f1"></script>
   <script src="engine.js?v=8"></script>
-  <script src="game.js?v=52"></script>
+  <script src="game.js?v=53"></script>
 </body>
 </html>

@@ -40,6 +40,26 @@
   // and a DEEP shade for the rest, so each tile's edge is a light/dark accent OF its
   // colour (not a neutral line) while still following the glyph's differentiation split.
   const ACCENT = ['#f6b7c5', '#853100', '#f3e5ba', '#c9e9c3', '#097b55', '#b4edf9', '#034282', '#d1bdf0', '#691c5c'];
+  // Duplicated from styles.css .c0–.c8 (no clean way to read a CSS custom property
+  // back out for an HTML string built here) — keep the two lists in sync by hand.
+  // Used only by the results-card / leaderboard "opening pour" bead swatch below.
+  const BEAD_HEX = ['#e50b3e', '#ff843d', '#eec84f', '#3d962c', '#33ebad', '#1fdaff', '#298ff5', '#874ae3', '#de8cd0'];
+  const BEAD_NAME = ['red', 'orange', 'gold', 'green', 'spring', 'cyan', 'blue', 'purple', 'orchid'];
+
+  // The glyph body shared by every place a bead glyph is drawn (board beads +
+  // the leaderboard's opening-pour swatch). Solid black/white fill with the
+  // OPPOSITE-colour outline for a crisp silhouette on any bead: DARK_SET →
+  // white fill + black outline, others → black fill + white outline. Outline
+  // drawn ON TOP of the fill (no paint-order:stroke) — behind it only a
+  // sub-pixel sliver showed and anti-aliased into a soft blur. MITER join keeps
+  // polygon vertices sharp (round softened them into blobs); miterlimit stops
+  // the points bevelling.
+  function glyphMarkup(ci) {
+    const white = DARK_SET.has(ci);
+    const fill = white ? '#ffffff' : '#000000', stroke = white ? '#000000' : '#ffffff';
+    return '<g fill="' + fill + '" stroke="' + stroke +
+      '" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="6">' + (SHAPE[ci] || '') + '</g>';
+  }
 
   // Per-tier colour SELECTION. The full 9-colour palette (styles.css) is separated
   // for maximum mutual ΔE. Under the DEPTH ramp every tier uses the SAME 7 colours
@@ -52,6 +72,17 @@
   const SEVEN = [0, 1, 2, 3, 5, 6, 7];       // red · orange · gold · green · cyan · blue · purple
   const PALETTE = { easy: SEVEN, medium: SEVEN, hard: SEVEN };
   const paletteIndex = (c) => { const m = PALETTE[difficulty]; return m && m[c] != null ? m[c] : c; };
+
+  // Small "opening pour" swatch for a leaderboard row (feature: results/leaderboard
+  // show the bead each player's run started with). r.meta comes from the SHARED
+  // leaderboard — any client can write whatever it wants there — so b is validated
+  // BEFORE it ever touches an HTML string, and afterwards is used only to INDEX the
+  // local BEAD_HEX/BEAD_NAME/SHAPE/DARK_SET arrays, never interpolated raw.
+  function beadSwatchHtml(b) {
+    if (!Number.isInteger(b) || b < 0 || b > 8) return '';
+    return '<span class="lb-bead" style="background:' + BEAD_HEX[b] + '" title="Opening pour: ' + BEAD_NAME[b] + '">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' + glyphMarkup(b) + '</svg></span>';
+  }
 
   // ── Shared arcade leaderboard (one client for the whole arcade) ───────────
   // Data layer + modal UI are the synced shared modules, loaded as classic
@@ -82,13 +113,25 @@
 
   // ── state ──────────────────────────────────────────────────────────────────
   let PUZZLES = null, CAP = 4, COLS = 5;
-  let board = [], initial = [], history = [], moveCount = 0;
+  // history holds one {board, move} entry per move still "live" in the run: the
+  // board BEFORE the move, and the move itself in the engine's descriptor shape
+  // ({type:'pour', i, j, n} / {type:'rotate'}). One array carries the undo
+  // snapshots, the move record (how the results card finds "the first pour" —
+  // see firstPourBead), AND the move count: the tally shown/submitted is simply
+  // history.length, so undo is free by construction (it removes the move).
+  // redoStack mirrors history forward: undo() moves an entry across (with the
+  // board it's leaving), redo() moves it back.
+  let board = [], initial = [], history = [];
+  let redoStack = [];
   let selected = -1, mode = 'daily', puzzleId = '', par = 0, difficulty = 'easy';
   let lastDrop = null, animating = false, solvedAlready = false;
   let picker = null;   // shared window.ArcadeDifficulty picker (built in wire())
 
   const $ = (id) => document.getElementById(id);
   const boardEl = $('board');
+  // The two buttons the stuck-nudge decorates — looked up once, like boardEl
+  // (render refreshes them on every repaint).
+  const rotateBtn = $('rotateBtn'), restartBtn = $('restartBtn');
 
   // ── handle ───────────────────────────────────────────────────────────────
   function getHandle() { return loadSharedHandle(GAME); }
@@ -181,8 +224,8 @@
     resetToInitial();
   }
   function resetToInitial() {
-    board = initial.map((t) => t.slice());
-    history = []; moveCount = 0; selected = -1; lastDrop = null; solvedAlready = false;
+    board = E.clone(initial);
+    history = []; redoStack = []; selected = -1; lastDrop = null; solvedAlready = false;
     updateHud(); render();
   }
 
@@ -204,14 +247,28 @@
     opts = opts || {};
     boardEl.innerHTML = '';
     const R = 11;
+    // Hints (feature: move outlining) are gated on the player's preference and
+    // switched off entirely once the board is solved — no point outlining a
+    // finished puzzle. ALL hint surfaces (tube outlines here, the rotate/restart
+    // nudge at the bottom) repaint in this one pass, from this one legal-move
+    // enumeration, so no path can refresh one surface and leave another stale.
+    const hl = effectiveHighlight() && !solvedAlready;
+    const pours = hl ? E.legalPours(board, CAP) : null;
+    // Tubes with an outgoing legal pour — only meaningful (and only shown) with
+    // nothing picked up yet; once something's selected, is-target already marks
+    // the legal TARGETS, so has-move would be redundant noise.
+    const hasMove = (pours && selected < 0) ? new Set(pours.map((p) => p.i)) : null;
     board.forEach((tube, i) => {
       const urn = document.createElement('div');
       urn.className = 'urn';
       urn.dataset.i = i;
       if (isDone(tube)) urn.classList.add('done');
       if (i === selected) urn.classList.add('is-selected');
-      else if (selected >= 0 && effectiveHighlight() && canPour(selected, i)) urn.classList.add('is-target');
-      else if (selected < 0 && tube.length) urn.classList.add('is-selectable');
+      else if (selected >= 0 && hl && canPour(selected, i)) urn.classList.add('is-target');
+      else if (selected < 0 && tube.length) {
+        urn.classList.add('is-selectable');
+        if (hasMove && hasMove.has(i)) urn.classList.add('has-move');
+      }
       const stack = document.createElement('div');
       stack.className = 'stack';
       // group bottom -> top into runs of equal colour; each run is ONE bead
@@ -253,17 +310,10 @@
         const gs = 1 + 0.07 * (run.len - 1);
         const fr = 45 / gs, mn = (12 - fr / 2).toFixed(3), sz = fr.toFixed(3);
         const vb = mn + ' ' + mn + ' ' + sz + ' ' + sz;
-        // Solid black/white fill with the OPPOSITE-colour outline for a crisp silhouette on
-        // any bead: DARK_SET → white fill + black outline, others → black fill + white outline.
-        // Outline drawn ON TOP of the fill (no paint-order:stroke) — behind it only a sub-pixel
-        // sliver showed and anti-aliased into a soft blur. MITER join keeps polygon vertices
-        // sharp (round softened them into blobs); miterlimit stops the points bevelling.
-        const white = DARK_SET.has(ci);
-        const fill = white ? '#ffffff' : '#000000', stroke = white ? '#000000' : '#ffffff';
         // SVG fills the whole bead box (styles.css) and the shape is centred by the
-        // viewBox — the glyph shares the bead's exact raster phase, so it never drifts.
-        sym.innerHTML = '<svg viewBox="' + vb + '" aria-hidden="true"><g fill="' + fill +
-          '" stroke="' + stroke + '" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="6">' + (SHAPE[ci] || '') + '</g></svg>';
+        // viewBox — the glyph shares the bead's exact raster phase, so it never
+        // drifts. Fill/stroke/miter rationale lives with glyphMarkup.
+        sym.innerHTML = '<svg viewBox="' + vb + '" aria-hidden="true">' + glyphMarkup(ci) + '</svg>';
         bead.appendChild(sym); // ONE glyph, geometry-centred in the run
         stack.appendChild(bead);
       }
@@ -275,6 +325,17 @@
       urn.appendChild(stack);
       boardEl.appendChild(urn);
     });
+    // "You're stuck" nudge — only when NO pour exists anywhere on the board (a
+    // genuine dead end, not just "you haven't picked one up yet"): Rotate is
+    // suggested if flipping would open a pour; Restart only if even the flipped
+    // board is stuck. Never both — always clear first, so a repaint with hints
+    // off (or after a solve) also clears any lit nudge.
+    rotateBtn.classList.remove('suggest');
+    restartBtn.classList.remove('suggest');
+    if (pours && !pours.length) {
+      if (E.legalPours(E.rotate(board), CAP).length) rotateBtn.classList.add('suggest');
+      else restartBtn.classList.add('suggest');
+    }
     lastDrop = null;
   }
 
@@ -293,14 +354,14 @@
       selected = board[i].length ? i : -1; render();
     }
   }
-  function pushHistory() { history.push(board.map((t) => t.slice())); }
+  function pushHistory(move) { history.push({ board: E.clone(board), move: move }); }
   function doPour(i, j) {
     const n = E.pourCount(board, i, j, CAP);
     const merged = board[j].length > 0; // pour requires matching top or empty -> non-empty means it fuses
-    pushHistory();
+    pushHistory({ type: 'pour', i: i, j: j, n: n });
     board = E.pour(board, i, j, CAP);
-    moveCount++; selected = -1; lastDrop = { j: j, n: n, merged: merged };
-    registerMove();
+    selected = -1; lastDrop = { j: j, n: n, merged: merged };
+    redoStack.length = 0; // a fresh move invalidates any redo
     afterMove();
   }
   function doRotate() {
@@ -308,8 +369,9 @@
     animating = true; selected = -1;
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const finish = () => {
-      pushHistory();
-      board = E.rotate(board); moveCount++; registerMove();
+      pushHistory({ type: 'rotate' });
+      board = E.rotate(board);
+      redoStack.length = 0;
       render({ fall: true }); // upright tumblers, reversed data, beads fall into place
       animating = false; updateHud(); checkWin();
     };
@@ -322,11 +384,27 @@
   }
   function undo() {
     if (animating || !history.length || solvedAlready) return;
-    board = history.pop();
-    moveCount = Math.max(0, moveCount - 1); // remove the undone move; undo itself is free
+    const entry = history.pop();
+    redoStack.push({ board: E.clone(board), move: entry.move });
+    board = entry.board;
     selected = -1; updateHud(); render();
   }
+  function redo() {
+    if (animating || solvedAlready || !redoStack.length) return;
+    const entry = redoStack.pop();
+    pushHistory(entry.move);
+    board = entry.board;
+    selected = -1;
+    updateHud(); render(); checkWin();
+  }
   function restart() { if (!animating) resetToInitial(); }
+  // The display bead of the run's first pour (each history entry holds the board
+  // BEFORE its move, so the moved colour is that board's top of tube i) — or
+  // null for a run with no pour recorded. Feeds the startBead submission meta.
+  function firstPourBead() {
+    const e = history.find((h) => h.move.type === 'pour');
+    return e ? paletteIndex(E.topRun(e.board[e.move.i]).color) : null;
+  }
 
   function afterMove() { updateHud(); render(); checkWin(); }
   // Moves readout: shared ArcadeMetricCounter (tally kind) adopting the game's
@@ -335,9 +413,10 @@
   function updateHud() {
     const el = $('moveCount');
     if (!hudMoves) hudMoves = window.ArcadeMetricCounter.createMetricCounter({ els: { root: el.parentElement, value: el }, kind: 'tally' });
-    hudMoves.set(moveCount);
+    hudMoves.set(history.length);
     el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
     $('undoBtn').disabled = history.length === 0;
+    $('redoBtn').disabled = redoStack.length === 0;
   }
   function checkWin() { if (E.solved(board)) onSolved(); }
 
@@ -379,7 +458,7 @@
   async function onSolved() {
     solvedAlready = true; selected = -1; render();
     boardEl.classList.add('flash'); setTimeout(() => boardEl.classList.remove('flash'), 500);
-    const moves = moveCount;
+    const moves = history.length;
 
     if (mode === 'practice') { showResults(moves, null, null); return; }
 
@@ -399,7 +478,9 @@
       // board; the shared read dedupes each handle to its best (fewest moves).
       // Arcade standard: post to the daily board AND a fresh all-time board
       // (alltime2|<diff>) so the modal's All-time tab populates. Ranks by moves.
-      await submitMetricCompletion({ game: GAME, difficulty, value: moves, handle: getHandle(), board: dailyBoardKey(difficulty, puzzleId), meta: { par, difficulty }, alltimeVersion: 4 });
+      // startBead: the display bead of this winning run's FIRST pour — a little
+      // flavour on the results/leaderboard rows (see beadSwatchHtml).
+      await submitMetricCompletion({ game: GAME, difficulty, value: moves, handle: getHandle(), board: dailyBoardKey(difficulty, puzzleId), meta: { par, difficulty, startBead: firstPourBead() }, alltimeVersion: 4 });
       await submitTotalIfComplete();
     }
     showResults(moves, getLocalBest());
@@ -491,7 +572,7 @@
     // leaderboard shows its own board — not today's. offset walks back from there.
     boardKeyForOffset: (offset, diff) => dailyBoardKey(diff, localDateStr(dayNumFromKey(window.ArcadeDailySeed.dailyDateKey()) - offset)),
     baseDateKey: () => window.ArcadeDailySeed.dailyDateKey(),
-    rowStat: (r) => `${(r.meta && r.meta.value != null) ? r.meta.value : r.score}<small> mv</small>`,
+    rowStat: (r) => beadSwatchHtml(r.meta ? r.meta.startBead : null) + `${(r.meta && r.meta.value != null) ? r.meta.value : r.score}<small> mv</small>`,
     youRow: (best) => `${best.value != null ? best.value : best.moves}<small> mv</small>`,
     youHead: 'Your best by difficulty',
     alltimeVersion: 4,
@@ -508,7 +589,7 @@
     return s;
   }
   async function doShare() {
-    const txt = shareText(moveCount);
+    const txt = shareText(history.length);
     try {
       if (navigator.share) { await navigator.share({ text: txt }); return; }
     } catch (_) {}
@@ -537,41 +618,14 @@
   function openModal(id) { $(id).hidden = false; }
   function closeModal(id) { $(id).hidden = true; }
 
-  // ── move-highlight setting + new-player teaching ─────────────────────────
-  const HL_KEY = 'ctt.tumbler.highlightMoves', TEACH_KEY = 'ctt.tumbler.teachMoves', POPUP_KEY = 'ctt.tumbler.hlPopupShown';
-  const TEACH_LIMIT = 6;
+  // ── move-highlight setting ────────────────────────────────────────────────
+  // Outlining is ON by default for everyone — one help-menu checkbox opts out
+  // (stored preference is the only thing that can turn it off; there's no
+  // separate new-player teaching mode to expire).
+  const HL_KEY = 'ctt.tumbler.highlightMoves';
   function getHLPref() { try { return localStorage.getItem(HL_KEY); } catch (_) { return null; } }
-  function teachMoves() { try { return parseInt(localStorage.getItem(TEACH_KEY), 10) || 0; } catch (_) { return 0; } }
-  function effectiveHighlight() {
-    const p = getHLPref();
-    if (p === 'on') return true;
-    if (p === 'off') return false;
-    return teachMoves() < TEACH_LIMIT;          // teach a brand-new player, then stop
-  }
-  function registerMove() {
-    if (getHLPref() !== null) return;            // player has set a preference — teaching is over
-    let t = teachMoves();
-    if (t >= TEACH_LIMIT) return;
-    t++; try { localStorage.setItem(TEACH_KEY, String(t)); } catch (_) {}
-    if (t >= TEACH_LIMIT) {                       // highlights have just turned off
-      let shown = null; try { shown = localStorage.getItem(POPUP_KEY); } catch (_) {}
-      if (!shown) {
-        try { localStorage.setItem(POPUP_KEY, '1'); } catch (_) {}
-        showToast('Move highlights are off now — turn them back on anytime in How to play.');
-      }
-    }
-  }
+  function effectiveHighlight() { return getHLPref() !== 'off'; }
   function setHighlight(on) { try { localStorage.setItem(HL_KEY, on ? 'on' : 'off'); } catch (_) {} render(); }
-
-  // ── transient toast ──────────────────────────────────────────────────────
-  let toastTimer = null;
-  function showToast(msg) {
-    const t = $('toast'); if (!t) return;
-    t.textContent = msg; t.hidden = false;
-    requestAnimationFrame(() => t.classList.add('show'));
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.classList.remove('show'); setTimeout(() => { t.hidden = true; }, 300); }, 5200);
-  }
 
   // ── first-play tutorial (shared arcade carousel) ─────────────────────────
   function initTutorial() {
@@ -617,9 +671,10 @@
       const urn = e.target.closest('.urn'); if (!urn) return;
       onUrnClick(parseInt(urn.dataset.i, 10));
     });
-    $('rotateBtn').addEventListener('click', doRotate);
+    rotateBtn.addEventListener('click', doRotate);
     $('undoBtn').addEventListener('click', undo);
-    $('restartBtn').addEventListener('click', restart);
+    $('redoBtn').addEventListener('click', redo);
+    restartBtn.addEventListener('click', restart);
     $('modeDaily').addEventListener('click', () => { setMode('daily'); });
     $('modePractice').addEventListener('click', () => { setMode('practice'); });
     // Difficulty row: the shared vended picker (aria-pressed/active handled inside).
@@ -645,11 +700,12 @@
         }
       });
     });
-    // keyboard: R rotate, U undo
+    // keyboard: R rotate, U undo, Y redo
     document.addEventListener('keydown', (e) => {
       if (e.target && /input|textarea/i.test(e.target.tagName)) return;
       if (e.key === 'r' || e.key === 'R') doRotate();
       else if (e.key === 'u' || e.key === 'U') undo();
+      else if (e.key === 'y' || e.key === 'Y') redo();
     });
   }
   function setModeUI(m) {
@@ -694,5 +750,5 @@
   });
 
   // read-only state hook (for diagnostics; no mutators exposed)
-  window.__tumbler = { state: () => ({ moveCount, par, mode, solved: E.solved(board) }) };
+  window.__tumbler = { state: () => ({ moveCount: history.length, par, mode, solved: E.solved(board) }) };
 })();

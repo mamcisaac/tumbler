@@ -4,7 +4,7 @@ A colour-sort puzzle with a twist, for the [Connect the Thoughts](https://connec
 
 Pour the top colour from one urn to another to sort each urn into a single colour — but the catch is the **Rotate** button: it flips the whole rack 180° so the **bottom of every urn becomes the top**, the only way to reach colours buried at the bottom. Every pour *and* every rotate costs one move; solve in as few moves as you can.
 
-Unlike the rest of the arcade, the daily is **replayable** — your *best* score is the one that counts, so you can keep trimming moves and climb the distribution.
+Unlike the rest of the arcade, the daily is **replayable** — your *best* score is the one that counts, so you can keep trimming moves and climb the distribution. Undo/redo are unlimited, and the game subtly outlines possible moves by default — including when it's time to **Rotate** or **Restart** — with an off switch in "How to play".
 
 ## Difficulty tiers
 
@@ -21,7 +21,7 @@ Solving a tier advances to the next; clearing all three completes the daily and 
 ## Structure (static, no build)
 - `index.html` / `styles.css` — UI, vendored arcade chrome (`tokens.css`, `chrome.css`, `arcade-components.css`, `arcade-theme.js`).
 - `engine.js` — core moves (pour / rotate / solved), shared by the game and the generator.
-- `game.js` — board UI, difficulty tiers, scoring, the improvement leaderboard (Supabase `arcade_scores`), share.
+- `game.js` — board UI, move hints, difficulty tiers, scoring, the improvement leaderboard (Supabase `arcade_scores`), share.
 - `puzzles.json` — daily puzzle pools (v2: `{ tiers: { easy, medium, hard } }`, one board per tier per day, by local date).
 - `empty-tube-study.md` / `empty-tube-study.mjs` — the simulations that fixed the tier parameters.
 

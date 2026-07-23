@@ -100,7 +100,13 @@ body {
 .urn.flip { transition: transform .4s cubic-bezier(.45,.05,.3,1); transform: rotateX(180deg); z-index: 2; }
 .urn.is-selectable:hover { border-color: var(--accent); transform: translateY(-3px); }
 .urn.is-selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent), inset 0 9px 11px -9px rgba(0,0,0,.34), inset 0 -9px 11px -9px rgba(0,0,0,.34); }
-.urn.is-target { border-color: var(--accent-hover); box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 55%, transparent), inset 0 9px 11px -9px rgba(0,0,0,.34), inset 0 -9px 11px -9px rgba(0,0,0,.34); }
+/* Selected tumbler's legal targets: accent border kept, but the glow is turned
+   WAY down from the old 16px/55% — is-selected already has a strong ring, so a
+   target only needs to read as "different", not compete with it for attention. */
+.urn.is-target { border-color: var(--accent-hover); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 38%, transparent), inset 0 9px 11px -9px rgba(0,0,0,.34), inset 0 -9px 11px -9px rgba(0,0,0,.34); }
+/* Nothing picked up yet, but this tumbler has somewhere to go: a tinted border
+   only — no glow at all — so it reads as a quiet suggestion, not a demand. */
+.urn.has-move { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); }
 .urn.done::after { content: "✓"; position: absolute; top: -22px; left: 50%; transform: translateX(-50%); color: var(--accent); font-weight: 800; font-size: .9rem; }
 
 /* beads sit at the bottom (gravity); the stack falls into place after a flip */
@@ -180,27 +186,29 @@ body {
 .ctl-rotate { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 .ctl-rotate svg { transition: transform .4s cubic-bezier(.5,0,.3,1); }
 .ctl-rotate:hover svg { transform: rotate(-180deg); }
+/* Redo is Undo's small, icon-only mirror — same row, no label, so it doesn't
+   compete with Rotate/Undo for visual weight. */
+.ctl-redo { padding: 9px 11px; }
 /* Restart sits on its own line, separated, and styled quietly so it isn't tapped by accident */
 .controls-restart { margin-top: clamp(8px, 1.6dvh, 16px); }
 .ctl-ghost { background: transparent; color: var(--fg-subtle); border-color: var(--border); padding: 8px 18px; font-size: .85rem; font-weight: 600; }
 .ctl-ghost:hover { border-color: var(--accent); color: var(--fg); }
 .ctl-ghost svg { opacity: .85; }
+/* "You're stuck" nudge on Rotate/Restart: a soft ring plus a gentle pulse so it
+   catches the eye without shouting. Never both buttons at once (see render()). */
+.ctl.suggest { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); animation: suggestPulse 2s ease-in-out infinite alternate; }
+@keyframes suggestPulse {
+  from { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+  to   { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 65%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .ctl.suggest { animation: none; } }
 .hint { text-align: center; color: var(--fg-subtle); font-size: .8rem; margin: 0; }
 .hint b { color: var(--fg-muted); }
 @media (max-height: 700px) { .hint { display: none; } }
 
-/* help toggle + transient toast */
+/* help toggle */
 .help-toggle { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); cursor: pointer; color: var(--fg-muted); font-size: .9rem; }
 .help-toggle input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; cursor: pointer; }
-.toast {
-  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(12px);
-  background: var(--bg-elev); color: var(--fg); border: 1px solid var(--border-strong);
-  border-radius: 14px; padding: 11px 16px; font-size: .84rem; font-weight: 600;
-  box-shadow: var(--shadow-lg); max-width: 86vw; text-align: center; z-index: 60;
-  opacity: 0; transition: opacity .25s ease, transform .25s ease; pointer-events: none;
-}
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.toast[hidden] { display: none; }
 
 /* ── modals (build on shared .modal-backdrop / .modal-card) ──── */
 .results-emoji { font-size: 2.4rem; text-align: center; }
@@ -239,6 +247,10 @@ body {
 /* extension of vended .lb-body: min-height tweak only */
 .lb-body { min-height: 120px; }
 .lb-score small { font-weight: 600; color: var(--fg-subtle); }
+/* "Opening pour" swatch on a leaderboard row: a tiny in-board bead lookalike
+   (colour + glyph), so it reads as the same piece the player picked up first. */
+.lb-bead { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 6px; }
+.lb-bead svg { width: 100%; height: 100%; display: block; }
 
 .help-list { line-height: 1.6; padding-left: 18px; color: var(--fg-muted); }
 .help-list b { color: var(--fg); }

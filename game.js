@@ -46,6 +46,21 @@
   const BEAD_HEX = ['#e50b3e', '#ff843d', '#eec84f', '#3d962c', '#33ebad', '#1fdaff', '#298ff5', '#874ae3', '#de8cd0'];
   const BEAD_NAME = ['red', 'orange', 'gold', 'green', 'spring', 'cyan', 'blue', 'purple', 'orchid'];
 
+  // The glyph body shared by every place a bead glyph is drawn (board beads +
+  // the leaderboard's opening-pour swatch). Solid black/white fill with the
+  // OPPOSITE-colour outline for a crisp silhouette on any bead: DARK_SET →
+  // white fill + black outline, others → black fill + white outline. Outline
+  // drawn ON TOP of the fill (no paint-order:stroke) — behind it only a
+  // sub-pixel sliver showed and anti-aliased into a soft blur. MITER join keeps
+  // polygon vertices sharp (round softened them into blobs); miterlimit stops
+  // the points bevelling.
+  function glyphMarkup(ci) {
+    const white = DARK_SET.has(ci);
+    const fill = white ? '#ffffff' : '#000000', stroke = white ? '#000000' : '#ffffff';
+    return '<g fill="' + fill + '" stroke="' + stroke +
+      '" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="6">' + (SHAPE[ci] || '') + '</g>';
+  }
+
   // Per-tier colour SELECTION. The full 9-colour palette (styles.css) is separated
   // for maximum mutual ΔE. Under the DEPTH ramp every tier uses the SAME 7 colours
   // (difficulty is tube height, not colour count), so all three map to one tuned
@@ -65,11 +80,8 @@
   // local BEAD_HEX/BEAD_NAME/SHAPE/DARK_SET arrays, never interpolated raw.
   function beadSwatchHtml(b) {
     if (!Number.isInteger(b) || b < 0 || b > 8) return '';
-    const white = DARK_SET.has(b);
-    const fill = white ? '#ffffff' : '#000000', stroke = white ? '#000000' : '#ffffff';
     return '<span class="lb-bead" style="background:' + BEAD_HEX[b] + '" title="Opening pour: ' + BEAD_NAME[b] + '">' +
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="' + fill + '" stroke="' + stroke +
-      '" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="6">' + (SHAPE[b] || '') + '</g></svg></span>';
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' + glyphMarkup(b) + '</svg></span>';
   }
 
   // ── Shared arcade leaderboard (one client for the whole arcade) ───────────
@@ -101,18 +113,23 @@
 
   // ── state ──────────────────────────────────────────────────────────────────
   let PUZZLES = null, CAP = 4, COLS = 5;
+  // history holds one {board, move} entry per move still "live" in the run: the
+  // board BEFORE the move, and the move itself in the engine's descriptor shape
+  // ({type:'pour', i, j, n} / {type:'rotate'}). One array carries both the undo
+  // snapshots and the move record (which is how the results card finds "the
+  // first pour" — see firstPourBead). redoStack mirrors it forward: undo() moves
+  // an entry across (with the board it's leaving), redo() moves it back.
   let board = [], initial = [], history = [], moveCount = 0;
-  // redoStack mirrors history but forward: undo() pushes the move it's rewinding
-  // here (board it's leaving + the moveLog entry), redo() pops it back. moveLog is
-  // the ordered list of moves still "live" in the current run (undo pops off it,
-  // same as history) — it's what lets the results card find "the first pour" below.
-  let redoStack = [], moveLog = [];
+  let redoStack = [];
   let selected = -1, mode = 'daily', puzzleId = '', par = 0, difficulty = 'easy';
   let lastDrop = null, animating = false, solvedAlready = false;
   let picker = null;   // shared window.ArcadeDifficulty picker (built in wire())
 
   const $ = (id) => document.getElementById(id);
   const boardEl = $('board');
+  // The two buttons the stuck-nudge decorates — looked up once, like boardEl
+  // (updateHints runs after every move).
+  const rotateBtn = $('rotateBtn'), restartBtn = $('restartBtn');
 
   // ── handle ───────────────────────────────────────────────────────────────
   function getHandle() { return loadSharedHandle(GAME); }
@@ -205,8 +222,8 @@
     resetToInitial();
   }
   function resetToInitial() {
-    board = initial.map((t) => t.slice());
-    history = []; redoStack = []; moveLog = []; moveCount = 0; selected = -1; lastDrop = null; solvedAlready = false;
+    board = E.clone(initial);
+    history = []; redoStack = []; moveCount = 0; selected = -1; lastDrop = null; solvedAlready = false;
     updateHud(); render();
   }
 
@@ -224,15 +241,6 @@
     for (let i = 1; i < t.length; i++) if (t[i] !== t[0]) return false;
     return true;
   }
-  // Does ANY ordered pair (i,j) in brd have a legal pour? Cheap: at most 10 tubes,
-  // so ~100 pourCount calls — used both for the has-move hint and the rotate/
-  // restart dead-end check (the latter also runs it once more on the ROTATED board).
-  function boardHasAnyPour(brd) {
-    for (let i = 0; i < brd.length; i++)
-      for (let j = 0; j < brd.length; j++)
-        if (i !== j && E.pourCount(brd, i, j, CAP) > 0) return true;
-    return false;
-  }
   function render(opts) {
     opts = opts || {};
     boardEl.innerHTML = '';
@@ -241,11 +249,12 @@
     // switched off entirely once the board is solved — no point outlining a
     // finished puzzle.
     const hl = effectiveHighlight() && !solvedAlready;
-    // Per-tube "has an outgoing legal pour" set — only meaningful (and only shown)
-    // with nothing picked up yet; once something's selected, is-target already
-    // marks the legal TARGETS, so has-move would be redundant noise.
+    // Tubes with an outgoing legal pour (the engine's own move enumeration) —
+    // only meaningful (and only shown) with nothing picked up yet; once
+    // something's selected, is-target already marks the legal TARGETS, so
+    // has-move would be redundant noise.
     const hasMove = (hl && selected < 0)
-      ? board.map((_, i) => board.some((__, j) => i !== j && E.pourCount(board, i, j, CAP) > 0))
+      ? new Set(E.legalPours(board, CAP).map((p) => p.i))
       : null;
     board.forEach((tube, i) => {
       const urn = document.createElement('div');
@@ -256,7 +265,7 @@
       else if (selected >= 0 && hl && canPour(selected, i)) urn.classList.add('is-target');
       else if (selected < 0 && tube.length) {
         urn.classList.add('is-selectable');
-        if (hasMove && hasMove[i]) urn.classList.add('has-move');
+        if (hasMove && hasMove.has(i)) urn.classList.add('has-move');
       }
       const stack = document.createElement('div');
       stack.className = 'stack';
@@ -299,17 +308,10 @@
         const gs = 1 + 0.07 * (run.len - 1);
         const fr = 45 / gs, mn = (12 - fr / 2).toFixed(3), sz = fr.toFixed(3);
         const vb = mn + ' ' + mn + ' ' + sz + ' ' + sz;
-        // Solid black/white fill with the OPPOSITE-colour outline for a crisp silhouette on
-        // any bead: DARK_SET → white fill + black outline, others → black fill + white outline.
-        // Outline drawn ON TOP of the fill (no paint-order:stroke) — behind it only a sub-pixel
-        // sliver showed and anti-aliased into a soft blur. MITER join keeps polygon vertices
-        // sharp (round softened them into blobs); miterlimit stops the points bevelling.
-        const white = DARK_SET.has(ci);
-        const fill = white ? '#ffffff' : '#000000', stroke = white ? '#000000' : '#ffffff';
         // SVG fills the whole bead box (styles.css) and the shape is centred by the
-        // viewBox — the glyph shares the bead's exact raster phase, so it never drifts.
-        sym.innerHTML = '<svg viewBox="' + vb + '" aria-hidden="true"><g fill="' + fill +
-          '" stroke="' + stroke + '" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="6">' + (SHAPE[ci] || '') + '</g></svg>';
+        // viewBox — the glyph shares the bead's exact raster phase, so it never
+        // drifts. Fill/stroke/miter rationale lives with glyphMarkup.
+        sym.innerHTML = '<svg viewBox="' + vb + '" aria-hidden="true">' + glyphMarkup(ci) + '</svg>';
         bead.appendChild(sym); // ONE glyph, geometry-centred in the run
         stack.appendChild(bead);
       }
@@ -321,16 +323,6 @@
       urn.appendChild(stack);
       boardEl.appendChild(urn);
     });
-    // "You're stuck" nudge: only when NO pour exists anywhere on the current
-    // board — a genuine dead end, not just "you haven't picked one up yet".
-    // Rotate is suggested if flipping would open a pour; Restart only if even
-    // the flipped board is a true dead end. Never both — always clear first.
-    $('rotateBtn').classList.remove('suggest');
-    $('restartBtn').classList.remove('suggest');
-    if (hl && !boardHasAnyPour(board)) {
-      if (boardHasAnyPour(E.rotate(board))) $('rotateBtn').classList.add('suggest');
-      else $('restartBtn').classList.add('suggest');
-    }
     lastDrop = null;
   }
 
@@ -349,15 +341,14 @@
       selected = board[i].length ? i : -1; render();
     }
   }
-  function pushHistory() { history.push(board.map((t) => t.slice())); }
+  function pushHistory(move) { history.push({ board: E.clone(board), move: move }); }
   function doPour(i, j) {
     const n = E.pourCount(board, i, j, CAP);
     const merged = board[j].length > 0; // pour requires matching top or empty -> non-empty means it fuses
-    const topColor = board[i][board[i].length - 1]; // BEFORE the pour — this run's colour is what moved
-    pushHistory();
+    pushHistory({ type: 'pour', i: i, j: j, n: n });
     board = E.pour(board, i, j, CAP);
     moveCount++; selected = -1; lastDrop = { j: j, n: n, merged: merged };
-    moveLog.push({ type: 'pour', color: topColor }); redoStack.length = 0; // a fresh move invalidates any redo
+    redoStack.length = 0; // a fresh move invalidates any redo
     afterMove();
   }
   function doRotate() {
@@ -365,9 +356,9 @@
     animating = true; selected = -1;
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const finish = () => {
-      pushHistory();
+      pushHistory({ type: 'rotate' });
       board = E.rotate(board); moveCount++;
-      moveLog.push({ type: 'rotate' }); redoStack.length = 0;
+      redoStack.length = 0;
       render({ fall: true }); // upright tumblers, reversed data, beads fall into place
       animating = false; updateHud(); checkWin();
     };
@@ -380,21 +371,30 @@
   }
   function undo() {
     if (animating || !history.length || solvedAlready) return;
-    redoStack.push({ board: board.map((t) => t.slice()), move: moveLog.pop() });
-    board = history.pop();
+    const entry = history.pop();
+    redoStack.push({ board: E.clone(board), move: entry.move });
+    board = entry.board;
     moveCount = Math.max(0, moveCount - 1); // remove the undone move; undo itself is free
     selected = -1; updateHud(); render();
   }
   function redo() {
     if (animating || solvedAlready || !redoStack.length) return;
-    pushHistory();
     const entry = redoStack.pop();
+    pushHistory(entry.move);
     board = entry.board;
-    moveLog.push(entry.move);
     moveCount++; selected = -1;
     updateHud(); render(); checkWin();
   }
   function restart() { if (!animating) resetToInitial(); }
+  // The display bead of the run's first pour (each history entry holds the board
+  // BEFORE its move, so the moved colour is that board's top of tube i) — or
+  // null for a run with no pour recorded. Feeds the startBead submission meta.
+  function firstPourBead() {
+    const e = history.find((h) => h.move.type === 'pour');
+    if (!e) return null;
+    const t = e.board[e.move.i];
+    return paletteIndex(t[t.length - 1]);
+  }
 
   function afterMove() { updateHud(); render(); checkWin(); }
   // Moves readout: shared ArcadeMetricCounter (tally kind) adopting the game's
@@ -407,6 +407,20 @@
     el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
     $('undoBtn').disabled = history.length === 0;
     $('redoBtn').disabled = redoStack.length === 0;
+    updateHints();
+  }
+  // "You're stuck" nudge — control-button state, like the disabled flags above.
+  // Only when NO pour exists anywhere on the board (a genuine dead end, not just
+  // "you haven't picked one up yet"): Rotate is suggested if flipping would open
+  // a pour; Restart only if even the flipped board is stuck. Never both — always
+  // clear first. Also re-run directly when the outlining pref flips (setHighlight).
+  function updateHints() {
+    rotateBtn.classList.remove('suggest');
+    restartBtn.classList.remove('suggest');
+    if (effectiveHighlight() && !solvedAlready && !E.legalPours(board, CAP).length) {
+      if (E.legalPours(E.rotate(board), CAP).length) rotateBtn.classList.add('suggest');
+      else restartBtn.classList.add('suggest');
+    }
   }
   function checkWin() { if (E.solved(board)) onSolved(); }
 
@@ -470,8 +484,7 @@
       // (alltime2|<diff>) so the modal's All-time tab populates. Ranks by moves.
       // startBead: the display bead of this winning run's FIRST pour — a little
       // flavour on the results/leaderboard rows (see beadSwatchHtml).
-      const fp = moveLog.find((m) => m.type === 'pour');
-      await submitMetricCompletion({ game: GAME, difficulty, value: moves, handle: getHandle(), board: dailyBoardKey(difficulty, puzzleId), meta: { par, difficulty, startBead: fp ? paletteIndex(fp.color) : null }, alltimeVersion: 4 });
+      await submitMetricCompletion({ game: GAME, difficulty, value: moves, handle: getHandle(), board: dailyBoardKey(difficulty, puzzleId), meta: { par, difficulty, startBead: firstPourBead() }, alltimeVersion: 4 });
       await submitTotalIfComplete();
     }
     showResults(moves, getLocalBest());
@@ -616,7 +629,7 @@
   const HL_KEY = 'ctt.tumbler.highlightMoves';
   function getHLPref() { try { return localStorage.getItem(HL_KEY); } catch (_) { return null; } }
   function effectiveHighlight() { return getHLPref() !== 'off'; }
-  function setHighlight(on) { try { localStorage.setItem(HL_KEY, on ? 'on' : 'off'); } catch (_) {} render(); }
+  function setHighlight(on) { try { localStorage.setItem(HL_KEY, on ? 'on' : 'off'); } catch (_) {} updateHints(); render(); }
 
   // ── first-play tutorial (shared arcade carousel) ─────────────────────────
   function initTutorial() {
@@ -662,10 +675,10 @@
       const urn = e.target.closest('.urn'); if (!urn) return;
       onUrnClick(parseInt(urn.dataset.i, 10));
     });
-    $('rotateBtn').addEventListener('click', doRotate);
+    rotateBtn.addEventListener('click', doRotate);
     $('undoBtn').addEventListener('click', undo);
     $('redoBtn').addEventListener('click', redo);
-    $('restartBtn').addEventListener('click', restart);
+    restartBtn.addEventListener('click', restart);
     $('modeDaily').addEventListener('click', () => { setMode('daily'); });
     $('modePractice').addEventListener('click', () => { setMode('practice'); });
     // Difficulty row: the shared vended picker (aria-pressed/active handled inside).

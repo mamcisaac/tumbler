@@ -8,25 +8,25 @@ Unlike the rest of the arcade, the daily is **replayable** — your *best* score
 
 ## Difficulty tiers
 
-Every day ships three boards, matching the arcade's easy→medium→hard run. Each one starts from a clean deal of **one empty tumbler** plus fully-full colour tubes, laid out as a 2×N grid:
+Every day ships three boards, matching the arcade's easy→medium→hard run. Difficulty is a **colour ramp**: each tier climbs in colour count (and grows a little taller too), laid out as a 2×N grid:
 
-| Tier | Colours | Tubes | Layout | Par (median) |
+| Tier | Colours | Tumblers | Layout | Par (median) |
 |---|---|---|---|---|
-| Easy | 5 + 1 empty | 6 | 2×3 | ~15 |
-| Medium | 7 + 1 empty | 8 | 2×4 | ~23 |
-| Hard | 9 + 1 empty | 10 | 2×5 | ~31 |
+| Easy | 6 | 7 | 2×4−1 | ~13 |
+| Medium | 7 | 8 | 2×4 | ~20 |
+| Hard | 8 | 9 | 2×5−1 | ~28 |
 
-Solving a tier advances to the next; clearing all three completes the daily and chains to the next arcade game. Each tier keeps its own replayable best and leaderboard board, and the leaderboard also has a **Total** tab that ranks players by their combined moves across all three tiers (submitted once the day's run is complete). Because the rack starts full, **Rotate is required on every board** — the generator only keeps boards proven unsolvable without it (hard requires ≥2 rotations). The design study behind these parameters is in [`empty-tube-study.md`](./empty-tube-study.md).
+Each board's beads are dealt with **spread slack**, not a guaranteed empty tumbler: the free space is shuffled across the whole rack, and on Medium and Hard a few colours land one bead short of a full stack (which colours come up short varies board to board). Solving a tier advances to the next; clearing all three completes the daily and chains to the next arcade game. Each tier keeps its own replayable best and leaderboard board, and the leaderboard also has a **Total** tab that ranks players by their combined moves across all three tiers (submitted once the day's run is complete). **Rotate is required on every board** — the generator only keeps boards proven unsolvable without it. The design studies behind these parameters are [`empty-tube-study.md`](./empty-tube-study.md) (the earlier depth-ramp design) and [`tier-ladder-study.md`](./tier-ladder-study.md) (the colour ramp).
 
 ## Structure (static, no build)
 - `index.html` / `styles.css` — UI, vendored arcade chrome (`tokens.css`, `chrome.css`, `arcade-components.css`, `arcade-theme.js`).
 - `engine.js` — core moves (pour / rotate / solved), shared by the game and the generator.
 - `game.js` — board UI, move hints, difficulty tiers, scoring, the improvement leaderboard (Supabase `arcade_scores`), share.
-- `puzzles.json` — daily puzzle pools (v2: `{ tiers: { easy, medium, hard } }`, one board per tier per day, by local date).
-- `empty-tube-study.md` / `empty-tube-study.mjs` — the simulations that fixed the tier parameters.
+- `puzzles.json` — daily puzzle pools (v3: `{ tiers: { easy, medium, hard } }`, one board per tier per day, by local date).
+- `empty-tube-study.md` and `tier-ladder-study.md` — the simulations that fixed the tier parameters (depth-ramp and colour-ramp designs respectively).
 
 ## Regenerating puzzles
 ```
-node generate.mjs [count] [minRotHard]
+node generate.mjs [count] [seed]
 ```
-`generate.mjs` deals each tier's beads uniformly into full tubes + one empty, then runs `solver.js` to keep boards whose par lands in the tier's window **and** that are provably unsolvable using fewer than the tier's required rotations. Defaults: `count=200` boards per tier, `minRotHard=2`.
+`generate.mjs` deals each tier's beads uniformly across all its tumblers — spreading the slack across the deal rather than setting aside one empty tumbler, with Medium/Hard drawing a few colours one bead short — then runs `solver.js` to keep boards whose par lands in the tier's window **and** that are provably unsolvable without Rotate. Defaults: `count=200` boards per tier, fixed seed (reproducible pools).

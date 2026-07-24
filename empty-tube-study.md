@@ -1,5 +1,11 @@
 # Design study: always start with one empty tumbler
 
+> **Superseded.** This study produced the one-empty depth-ramp tiers that shipped
+> as the `d4` generation. Those tiers were retired by the colour-ramp redesign —
+> see [`tier-ladder-study.md`](./tier-ladder-study.md) for the current design and
+> the forgiveness research behind it. Kept for the methodology and the
+> slack-ladder measurements, which the later study builds on.
+
 **Question:** could every daily start with one guaranteed-empty tumbler, laid out as
 two rows of 4 with the empty one centred vertically to the right? What would that
 change about expected moves and difficulty?

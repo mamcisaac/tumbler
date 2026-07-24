@@ -62,15 +62,21 @@
   }
 
   // Per-tier colour SELECTION. The full 9-colour palette (styles.css) is separated
-  // for maximum mutual ΔE. Under the DEPTH ramp every tier uses the SAME 7 colours
-  // (difficulty is tube height, not colour count), so all three map to one tuned
-  // 7-colour subset — red · orange · gold · green · cyan · blue · purple — dropping
-  // spring(4) and orchid(8), the two closest-neighbour hues, for maximum mutual ΔE.
-  // Each entry maps a puzzle's stored logical colour k → an index into the master
-  // .c0–.c8 palette and SHAPE glyphs. Solve logic stays on the dense logical indices;
-  // this only changes what's drawn, so the same board data serves every tier.
+  // for maximum mutual ΔE. Under the COLOUR ramp, difficulty is colour COUNT (not
+  // tube height), so each tier draws a differently-sized subset, each step
+  // restoring the next-closest-neighbour hue: easy keeps 6 — dropping orange(1),
+  // spring(4) AND orchid(8) (orange sits between red and gold; spring/orchid are
+  // the closest-neighbour hues left) — medium is the tuned 7-colour SEVEN (orange
+  // back in, spring/orchid still out), and hard adds spring(4) back for 8 —
+  // spring/green get opposite-luminance glyphs by DARK_SET, unlike orchid/purple,
+  // which still share one. Each entry maps a puzzle's stored logical colour k →
+  // an index into the master .c0–.c8 palette and SHAPE glyphs. Solve logic stays
+  // on the dense logical indices; this only changes what's drawn, so the same
+  // board data serves every tier.
+  const SIX = [0, 2, 3, 5, 6, 7];            // red · gold · green · cyan · blue · purple
   const SEVEN = [0, 1, 2, 3, 5, 6, 7];       // red · orange · gold · green · cyan · blue · purple
-  const PALETTE = { easy: SEVEN, medium: SEVEN, hard: SEVEN };
+  const EIGHT = [0, 1, 2, 3, 4, 5, 6, 7];    // SEVEN + spring
+  const PALETTE = { easy: SIX, medium: SEVEN, hard: EIGHT };
   const paletteIndex = (c) => { const m = PALETTE[difficulty]; return m && m[c] != null ? m[c] : c; };
 
   // Small "opening pour" swatch for a leaderboard row (feature: results/leaderboard
@@ -96,12 +102,15 @@
   const { submitMetricCompletion, reportStats, loadSharedHandle, saveSharedHandle } = LB;
 
   // ── difficulty tiers ───────────────────────────────────────────────────────
-  // Each daily ships three boards. Difficulty is a DEPTH ramp: all three use the
-  // SAME 7 colours + 1 empty (8 tubes, 2×4), and only the tube HEIGHT (beads per
-  // colour, `cap`) grows — easy K=3, medium K=4, hard K=5. Taller stacks bury
-  // colours deeper, so the signature Rotate mechanic does more work as you climb
-  // (see tube-size-study.mjs). Same easy→medium→hard run as the rest of the
-  // arcade: solving one tier advances to the next, and clearing all three
+  // Each daily ships three boards. Difficulty is a COLOUR ramp: the colour COUNT
+  // climbs — easy 6 colours, medium 7, hard 8 — over a 2×N layout of tumblers
+  // (7/8/9 of them) that also grows a little taller (cap 3/4/5). Slack (a
+  // colour short of a full cap-sized stack) is spread across the deal by a
+  // uniform shuffle rather than parked as one guaranteed-empty tumbler, and
+  // which colours land short varies board to board — so there's no free "spare"
+  // slot to lean on, and the signature Rotate mechanic does more work as you
+  // climb (see tier-ladder-study.md). Same easy→medium→hard run as the rest of
+  // the arcade: solving one tier advances to the next, and clearing all three
   // completes the daily (which chains to the next arcade game via the shared
   // results card).
   const DIFFS = ['easy', 'medium', 'hard'];
@@ -122,6 +131,11 @@
   // redoStack mirrors history forward: undo() moves an entry across (with the
   // board it's leaving), redo() moves it back.
   let board = [], initial = [], history = [];
+  // Per-logical-colour bead totals for the loaded puzzle (colorTotal[k] = how
+  // many beads of colour k exist across the whole board) — computed once per
+  // load in loadPuzzle from `initial`. isDone() needs this because the colour
+  // ramp's spread-slack deal means a short colour never fills a tumbler to CAP.
+  let colorTotal = [];
   let redoStack = [];
   let selected = -1, mode = 'daily', puzzleId = '', par = 0, difficulty = 'easy';
   let lastDrop = null, animating = false, solvedAlready = false;
@@ -159,11 +173,12 @@
     const d = new Date(dayNum * 86400000);
     return d.getUTCFullYear() + '-' + (d.getUTCMonth() + 1) + '-' + d.getUTCDate();
   }
-  // Namespaced leaderboard board key for a daily date + difficulty. The `d4|`
-  // prefix starts a fresh board generation: the depth-ramp tiers (7 colours ×
-  // K=3/4/5) aren't move-comparable to any earlier design — the single-board
-  // `d1|`, the 5/7/9 `d2|`, nor the short-lived 6/7/8 `d3|`.
-  function dailyBoardKey(diff, dateStr) { return 'd4|' + diff + '|' + dateStr; }
+  // Namespaced leaderboard board key for a daily date + difficulty. The `d5|`
+  // prefix starts a fresh board generation: the colour-ramp tiers (6/7/8
+  // colours, spread-slack deal) aren't move-comparable to any earlier design —
+  // the single-board `d1|`, the 5/7/9 `d2|`, the short-lived 6/7/8 `d3|`, nor
+  // the depth-ramp `d4|` (7 colours × K=3/4/5).
+  function dailyBoardKey(diff, dateStr) { return 'd5|' + diff + '|' + dateStr; }
   function tierPool(diff) { return PUZZLES.tiers[diff].puzzles; }
   // Which board a tier serves for a given date key (defaults to the active
   // daily date, honouring any archive replay). One date drives all three tiers.
@@ -214,11 +229,16 @@
     $('bestChip').hidden = true;
   }
   function loadPuzzle(tier, p) {
-    CAP = tier.cap || PUZZLES.capacity || 4;   // tube height varies per tier (depth ramp)
+    CAP = tier.cap || PUZZLES.capacity || 4;   // tube height varies a little per tier (3/4/5)
     COLS = tier.cols || Math.ceil(tier.tubes / 2);
     boardEl.style.setProperty('--cols', COLS);
     boardEl.style.setProperty('--cap', CAP);   // tumblers stand exactly CAP beads tall
     initial = p.tubes.map((t) => t.slice());
+    // Per-logical-colour bead totals for isDone(): the colour ramp's spread
+    // deal can leave a colour short of a full cap-sized stack, so "done" has
+    // to mean "holds every bead of its colour", not "holds CAP beads".
+    colorTotal = [];
+    initial.forEach((t) => t.forEach((c) => { colorTotal[c] = (colorTotal[c] || 0) + 1; }));
     par = p.par || 0;
     $('parVal').textContent = par || '–';
     resetToInitial();
@@ -236,12 +256,16 @@
     for (let i = t.length - 2; i >= 0 && t[i] === c; i--) n++;
     return n;
   }
-  // A tumbler earns the ✓ only when it's a full single-colour stack. An empty
-  // tumbler is not "done" — it's just empty — so it gets no checkmark.
+  // A tumbler earns the ✓ when it's non-empty, single-colour, and holds ALL
+  // beads of that colour — not merely CAP of them. A short colour (colour-ramp
+  // slack: some colours are dealt one bead fewer than a full stack) can never
+  // reach CAP, so this compares against colorTotal (the true per-colour count,
+  // computed once per puzzle load) instead. An empty tumbler is not "done" —
+  // it's just empty — so it gets no checkmark.
   function isDone(t) {
-    if (t.length !== CAP) return false;
+    if (!t.length) return false;
     for (let i = 1; i < t.length; i++) if (t[i] !== t[0]) return false;
-    return true;
+    return t.length === colorTotal[t[0]];
   }
   function render(opts) {
     opts = opts || {};
@@ -480,7 +504,7 @@
       // (alltime2|<diff>) so the modal's All-time tab populates. Ranks by moves.
       // startBead: the display bead of this winning run's FIRST pour — a little
       // flavour on the results/leaderboard rows (see beadSwatchHtml).
-      await submitMetricCompletion({ game: GAME, difficulty, value: moves, handle: getHandle(), board: dailyBoardKey(difficulty, puzzleId), meta: { par, difficulty, startBead: firstPourBead() }, alltimeVersion: 4 });
+      await submitMetricCompletion({ game: GAME, difficulty, value: moves, handle: getHandle(), board: dailyBoardKey(difficulty, puzzleId), meta: { par, difficulty, startBead: firstPourBead() }, alltimeVersion: 5 });
       await submitTotalIfComplete();
     }
     showResults(moves, getLocalBest());
@@ -495,7 +519,7 @@
   async function submitTotalIfComplete() {
     const total = dayTotal();
     if (total == null) return;
-    await submitMetricCompletion({ game: GAME, difficulty: 'total', value: total, handle: getHandle(), board: dailyBoardKey('total', puzzleId), meta: { difficulty: 'total' }, alltimeVersion: 4 });
+    await submitMetricCompletion({ game: GAME, difficulty: 'total', value: total, handle: getHandle(), board: dailyBoardKey('total', puzzleId), meta: { difficulty: 'total' }, alltimeVersion: 5 });
   }
 
   // Shared arcade results card, mounted inside the existing #resultsModal.
@@ -575,7 +599,7 @@
     rowStat: (r) => beadSwatchHtml(r.meta ? r.meta.startBead : null) + `${(r.meta && r.meta.value != null) ? r.meta.value : r.score}<small> mv</small>`,
     youRow: (best) => `${best.value != null ? best.value : best.moves}<small> mv</small>`,
     youHead: 'Your best by difficulty',
-    alltimeVersion: 4,
+    alltimeVersion: 5,
     bestComparator: (e, cur) => (e.value != null ? e.value : e.moves) < (cur.value != null ? cur.value : cur.moves),
     youStats: { metricLabel: 'Moves', buckets: [{ label: '≤12', max: 12 }, { label: '13–20', max: 20 }, { label: '21–30', max: 30 }, { label: '31+' }] },
   });
@@ -683,7 +707,7 @@
       difficulties: DIFFS,
       current: difficulty,
       labels: DIFF_LABEL,
-      subs: { easy: '3 deep', medium: '4 deep', hard: '5 deep' },
+      subs: { easy: '6 colours', medium: '7 colours', hard: '8 colours' },
       onSelect: setDifficulty,
     });
     lbUi.wire();   // shared factory owns the #lbButton + #lb-modal (Today/All-time/You + Easy/Medium/Hard tabs, day-nav)
@@ -737,7 +761,7 @@
   }
 
   // ── boot ─────────────────────────────────────────────────────────────────────
-  fetch('puzzles.json?v=2').then((r) => r.json()).then((data) => {
+  fetch('puzzles.json?v=3').then((r) => r.json()).then((data) => {
     PUZZLES = data;
     // Daily is the boot mode: open on today's first-unsolved tier (arcade
     // convention), not the last-played one. wire() builds the picker from

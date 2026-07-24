@@ -1,12 +1,18 @@
 # Design study: the colour-ramp tier ladder
 
-> **Revised.** The ladder this study's "Short answer" and "Recommendation"
-> sections arrive at — colours 6→7→8 over depths 3/4/5 with the short-colour
-> dial — shipped briefly and was then revised after playtest feedback: short
-> colours read as confusing and asymmetric. The CURRENT design is the
-> **full-stack colour ladder** (6/8/9 colours over 7/9/10 tumblers, all
-> 3-deep, no short colours) — see the dated **Revision** section at the end
-> of this document for the follow-up research and the shipped numbers.
+> **Revised twice — read the end of this document for what actually ships.**
+> The ladder these opening sections arrive at (colours 6→7→8 over depths
+> 3/4/5, tuned with the short-colour dial) shipped briefly, then went through
+> two rounds of playtest feedback:
+>
+> 1. **Revision 1** — short colours read as confusing and asymmetric, so they
+>    were dropped for full stacks (every colour exactly tube-height).
+> 2. **Revision 2** — spreading the slack left the OPENING nearly forced, so
+>    one tumbler is pinned empty again.
+>
+> The CURRENT design is therefore **6 / 7 / 8 colours over 7 / 8 / 9 tumblers,
+> all 3-deep, every colour a full stack, one tumbler starting empty**. Both
+> dated Revision sections at the end carry the research and shipped numbers.
 
 **Question:** the shipped generator ramps difficulty by tube HEIGHT — all three
 tiers use the same 7 colours + 1 pinned-empty tube (8 tubes, 2×4), and only K
@@ -410,3 +416,172 @@ without reintroducing short colours, growing colour count further (C=10+)
 is the only remaining axis — the frontier table above suggests it should
 still be usable, since the K=3 row's accept%/solve% curve is the gentlest
 of the three depths measured.
+
+## 2026-07-24 — Revision 2: the pinned empty tumbler
+
+> **Revised again.** The full-stack colour ladder above (6/8/9 colours,
+> uniform deal, no pinned empty tube) shipped as v4 and is superseded by
+> this revision. The CURRENT design pins one tube empty at deal time and
+> rides colours 6/7/8. `puzzles.json` is now v5.
+
+**Question:** the uniform deal above spreads a tier's whole slack budget
+across every tube in the shuffle. Does that leave the OPENING move — the
+very first decision a player makes — a real choice, or does spreading the
+slack thin enough that most boards just start pre-solved into a forced
+line?
+
+**Short answer:** forced, badly. Measured across the 600 boards the v4
+generator actually shipped (200/tier, 30 playouts/board doesn't even enter
+into it — this is just counting legal first moves on the stored board),
+the opening offered a MEDIAN of 2 legal pours, tier over tier:
+
+| Tier | opening pours (median) | % boards opening at ≤1 pour | % boards opening at 0 pours (Rotate-only) |
+|---|---|---|---|
+| Easy (C6)   | 2 | **40%** | **12.5%** |
+| Medium (C8) | 2 | **32.5%** | **7.5%** |
+| Hard (C9)   | 2 | **38.5%** | **7%** |
+
+Nearly four in ten easy boards, and roughly one in eight, opened with the
+game already deciding the first move for the player. A mechanic whose
+signature moment — move one — is usually not a choice at all undersells
+itself before the player has done anything.
+
+The fix is structural rather than another filter: pin exactly ONE tube
+empty at deal time (this is not a new idea for this project — an earlier,
+pre-colour-ramp version of the generator pinned an empty tube too, see the
+top of this document — but it was dropped when the axis moved to colour
+count, and this revision restores it deliberately). At cap 3, tubes =
+colours+1, pinning one tube empty fully determines the rest of the deal:
+slack equals cap exactly, so every other tube is dealt completely full.
+Every full tube is unconditionally a legal pour into the one empty tube (a
+stack pouring into empty space is never blocked by a colour mismatch), so
+the opening becomes exactly C-way on every single board — measured 0% of
+boards (any tier, any cap-3 colour count from 5 to 9, N=150 each) open at
+≤1 pour, down from 32.5–40% under the spread deal. Opening variance goes
+from "usually forced" to "exactly zero" by construction.
+
+### The honest limitation: this is a move-0 fix, not a whole-game one
+
+Pinning only touches the deal, so it only guarantees ONE thing: move zero.
+By move one, mean branching under the pinned design has already dropped
+back into the same range the old spread design occupied at that depth, and
+from there on the two designs are statistically indistinguishable. Move-index
+branching, pinned pipeline-realistic pools (C6/C7/C8, the shipped ladder)
+against spread's old shipped pools (C6/C8/C9):
+
+| move index | 0 | 1 | 2 | 3 | 5 | 10 |
+|---|---|---|---|---|---|---|
+| Spread easy (C6)   | 1.90 | 1.97 | 1.83 | 1.73 | 1.57 | 1.52 |
+| Pinned easy (C6)   | 6.00 | 1.98 | 1.47 | 1.64 | 1.61 | 1.53 |
+| Pinned medium (C7) | 7.00 | 1.98 | 1.44 | 1.67 | 1.57 | 1.45 |
+| Spread medium (C8) | 2.07 | 1.87 | 1.72 | 1.68 | 1.52 | 1.43 |
+| Pinned hard (C8)   | 8.00 | 2.04 | 1.45 | 1.66 | 1.55 | 1.44 |
+| Spread hard (C9)   | 1.85 | 1.79 | 1.78 | 1.69 | 1.55 | 1.39 |
+
+Move 0 is where pinning does all of its work (6/8/9 vs ~1.85–2.07 for
+spread at the same slot). By move 1 pinned has already fallen to ~1.98–2.04
+— the same neighbourhood spread's move-0/move-1 values occupy — and by
+move 3 onward the two designs track within a couple hundredths of each
+other. Pinning buys a guaranteed opening; it does not make the midgame or
+endgame meaningfully more open than the design it replaces.
+
+### Mid-game branching gets MORE forced as colour count grows — a second reason to step down
+
+A separate finding from the same pipeline-realistic branching traces:
+holding cap and pinning fixed, the share of positions with 3-or-more legal
+pours (the "real choice, not just a fork" band) falls steadily as colour
+count rises:
+
+| colours | % positions with ≥3 legal pours |
+|---|---|
+| C5 | 16.2% |
+| C6 | 15.2% |
+| C7 | 12.2% |
+| C8 | 9.1% |
+| C9 | 7.7% |
+
+More colours means more tubes to track but, per position, FEWER live
+options — the same colour-count compounding the original study found for
+forgiveness shows up in raw branching texture too. This is a second,
+independent argument (alongside the forgiveness bar below) for keeping the
+ladder's top end at 8 colours rather than 9: not only does C9 solve worse,
+its mid-game is also the most forced of the five colour counts measured.
+
+### The pinned quality table
+
+Pipeline-realistic runs (deal → W2-solve → rotate-required filter → per-C
+par window → 200 survivors, the exact `generate.mjs` pipeline) across the
+full C5–C9 frontier at cap 3:
+
+| colours | tubes | par (median) | pipeline-realistic persistent solve% |
+|---|---|---|---|
+| C5 | 6  | 11 | **94.5%** |
+| C6 | 7  | 13 | **92.0%** |
+| C7 | 8  | 16 | **86.8%** |
+| C8 | 9  | 18 | **80.7%** |
+| C9 | 10 | 21 | **79.1%** |
+
+A larger, N=500 settle pass (board-clustered bootstrap, 5000 reps) confirms
+C7 and C8 aren't sampling noise, and puts a number on how forced C9 really
+is:
+
+| colours | N | filtered persistent solve% | 95% CI |
+|---|---|---|---|
+| C7 | 500 (389 filtered) | 86.2% | [84.65, 87.79] |
+| C8 | 500 (438 filtered) | 82.8% | [81.19, 84.41] |
+| C9 | 500 (466 filtered) | 73.8% | [71.82, 75.68] |
+
+(The N=500 pass reuses the same par windows as the 200-survivor pipeline
+runs above, so C7/C8's point estimates move a hair between runs — 86.2%
+vs. 86.8%, 82.8% vs. 80.7% — purely from independent-sample noise; both
+runs agree C9 sits meaningfully lower, and its N=500 CI doesn't even
+overlap 80%.)
+
+### What pinning costs
+
+Pinning is not free. Compared at the SAME colour count, the pinned deal
+costs a handful of forgiveness points and a bit of extra par versus the old
+uniform spread (spread numbers from this document's full-stack frontier
+table above; pinned numbers from the pinned-empty frontier, both filtered
+to the rotate-required subset):
+
+| colours | spread filtered solve% | pinned filtered solve% | Δ forgiveness | spread filtered par (opt) | pinned filtered par (opt) | Δ par |
+|---|---|---|---|---|---|---|
+| C6 | 96.2% | 90.8% | −5.5pp | 12.1 | 13.3 | +1.2 |
+| C7 | 92.8% | 88.9% | −3.9pp | 14.6 | 15.5 | +1.0 |
+| C8 | 88.8% | 79.3% | −9.5pp | 17.1 | 18.2 | +1.1 |
+| C9 | 84.0% | 75.2% | −8.8pp | 19.5 | 20.3 | +0.8 |
+
+Pinning costs roughly **4–9 points of forgiveness** and **about one extra
+move of par** versus spreading the same slack, at every colour count
+measured. That's the price of guaranteeing a real opening on every board:
+concentrating the slack into one tube instead of spreading it thin makes
+the rest of the rack a hair less forgiving and a hair longer, on top of
+whatever colour count alone already costs.
+
+### The chosen ladder (implemented)
+
+Colours 6 → 7 → 8, tubes = colours+1, cap 3 throughout, one pinned empty
+tube per deal:
+
+| Tier | colours | tubes | par window | par (median) | overall generator acceptance | pipeline-realistic persistent solve% |
+|---|---|---|---|---|---|---|
+| Easy   | 6 | 7 | [10, 16] | 13 | **62.9%** | **92.0%** |
+| Medium | 7 | 8 | [13, 19] | 16 | **77.5%** | **86.8%** |
+| Hard   | 8 | 9 | [15, 21] | 18 | **85.1%** | **80.7%** |
+
+Every board on every tier: exactly one empty tube at deal time, every other
+tube exactly full, every colour exactly a 3-stack, provably rotate-required
+(exhaustive pour-only proof, never a budget guess), and — the headline
+property this revision exists for — an opening that offers exactly as many
+legal pours as the tier has colours, on every single board, no exceptions.
+
+**Rejected: keeping hard at 9 colours.** The C9 cell was measured
+side-by-side with C8 through every table above, and it loses on both axes
+that matter for a flagship "hard" tier: its pipeline-realistic solve rate
+(79.1%) sits just under the 80% forgiveness bar the ladder holds every
+tier to (and the N=500 pass confirms this isn't noise — CI [71.82, 75.68]
+on that run, comfortably below 80% either way), and its mid-game branching
+profile (7.7% of positions with ≥3 legal pours) is the most forced of the
+five colour counts measured — the worst of both worlds, not a trade worth
+making for one more colour. Hard stops at 8.

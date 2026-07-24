@@ -165,8 +165,11 @@ numbers; medium was re-run at N=300 to firm up its acceptance estimate.
 | Medium | C7 T8 K4 m1 | 5 | 20.4 / 20.2 | **66.7%** (N=300) | **82.4%** | 18–23 | 1.96 |
 | Hard   | C8 T9 K5 m4 | 9 | 27.8 / 27.3 | **12.7%** (N=150) | **85.3%** | 24.8–30.2 | 1.89 |
 
-("filtered" = the subset that provably requires Rotate — the subset the
-generator actually ships, since every daily requires the mechanic.)
+("filtered" = the subset that provably requires Rotate. The shipped pools
+apply one more filter on top — the per-tier par window — which trims some of
+the hardest tail, so the pools measure slightly friendlier than these cell
+estimates: re-running the same persistent-playout model on the shipped
+`puzzles.json` gives ≈96% / 85% / 88–89% for easy/medium/hard.)
 
 ### Dials kept in reserve
 

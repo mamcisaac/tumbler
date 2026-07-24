@@ -3,45 +3,58 @@
  *   node generate.mjs [count] [seed]
  *
  * Every daily ships three boards — easy / medium / hard. Difficulty is a
- * COLOUR ramp, not a depth ramp: each tier grows the colour count C
- * (6 → 8 → 9) on a modestly-growing rack (T = C+1 tubes), with slack spread
- * by a UNIFORM deal — no pinned empty tube, no fixed "reserve" slot. This is
- * the FULL-STACK ladder: every tier caps at K=3 and every colour gets
- * exactly K beads (a completed tumbler is exactly full, no short colours):
+ * COLOUR ramp: each tier grows the colour count C (6 → 7 → 8) on a rack of
+ * T = C+1 tubes, cap fixed at 3, every colour a FULL 3-stack (a completed
+ * tumbler is exactly full, no short colours). What's new in THIS revision is
+ * the deal itself:
  *
- *   easy    6 colours × 3 beads → 7 tubes,  cap 3, 21 slots (slack 3)
- *   medium  8 colours × 3 beads → 9 tubes,  cap 3, 27 slots (slack 3)
- *   hard    9 colours × 3 beads → 10 tubes, cap 3, 30 slots (slack 3)
+ *   easy    6 colours × 3 beads → 7 tubes, cap 3, ONE pinned empty tube
+ *   medium  7 colours × 3 beads → 8 tubes, cap 3, ONE pinned empty tube
+ *   hard    8 colours × 3 beads → 9 tubes, cap 3, ONE pinned empty tube
  *
- * Short colours (dealing m of the colours one bead fewer than the rest) are
- * REMOVED from the shipped ladder as of this revision — design feedback
- * flagged them as confusing/asymmetric (a colour that never fills its cap
- * reads as a bug, not a difficulty knob). The short-colour machinery
- * (`beadsShortRandom`, `TIERS[…].short`) is kept in the code below because
- * it is harmless and still fully documented, but every shipped tier now
- * runs with `short: 0`. Logical colours are dense 0..C−1; the display
- * mapping (which hues, which order) lives in game.js, not here.
+ * WHY pin one tube empty (again): measured across the 600 boards the
+ * previous (uniform-spread) generator shipped, the OPENING move was nearly
+ * forced. Spreading the deal's slack uniformly across every tube means most
+ * boards start with only a bead or two of "give" anywhere, and often none:
+ * the shipped v4 pool's first move offered a MEDIAN of just 2 legal pours,
+ * with 40% / 32.5% / 38.5% of easy/medium/hard boards opening at ≤1 legal
+ * pour and 12.5% / 7.5% / 7% opening at ZERO (Rotate the only legal move).
+ * A puzzle whose first "choice" is usually not a choice at all undersells
+ * the mechanic from move one.
  *
- * Why colour count, not tube height: the original grid sweep over
- * (colours C, tubes T=C+1, depth K, short-colours m) found that depth alone
- * gets punishing fast — at slack held fixed, adding a colour costs ~3pp of
- * persistent-random forgiveness at K=3 but ~17pp at K=5 (colour count and
- * depth COMPOUND rather than add). A follow-up study re-litigated the
- * short-colour dial after the design rejection and confirmed the same
- * conclusion holds without it: pushing colour count at a fixed, EXACTLY-full
- * cap of 3 (never growing K, never shorting a colour) is the frontier that
- * best trades off generation speed, rotate-necessity, and forgiveness. A
- * separate "headroom" alternative (shorting every colour by one bead at
- * higher K, chasing extra slack that way instead) was measured and
- * rejected — it collapses rotate-requirement to 0–3% acceptance. Full
- * methodology, the frontier tables, and the shipped-vs-baseline numbers are
- * written up in tier-ladder-study.md's "Revision: the full-stack colour
- * ladder" section.
+ * The fix is structural, not a filter: pin exactly ONE tube empty at deal
+ * time. At these parameters (cap 3, tubes = colours+1) that fully determines
+ * the rest of the deal — slack = cap exactly, so every other tube is
+ * necessarily dealt completely full. And a full tube is always a legal pour
+ * source into the one empty tube (it's a monochrome-or-mixed stack pouring
+ * into empty space — never blocked by a colour mismatch, since there's
+ * nothing in the destination to mismatch against). So the opening is always
+ * exactly C-way: every one of the C full tubes is a legal first pour, no
+ * more, no less, on every single board. Opening variance drops to zero by
+ * construction — there is no board in this design with fewer (or more) than
+ * C legal first moves.
+ *
+ * This is a MOVE-0 fix, not a whole-game one: by move 1, mean branching
+ * under the pinned design converges back to roughly what the old spread
+ * design already had at that depth (both land in the same ~1.9–2.1 range),
+ * and by mid-game the two designs are statistically indistinguishable. Full
+ * move-index tables, the mid-game branching-vs-colour-count finding, and the
+ * pinned-vs-spread forgiveness/par cost are written up in
+ * tier-ladder-study.md's "Revision 2: the pinned empty tumbler" section —
+ * including why hard stops at 8 colours (not 9): 9 colours pins in at 79.1%
+ * pipeline-realistic solve, just under the 80% forgiveness bar, and it also
+ * has the most forced mid-game branching profile of the colour counts
+ * measured, so there's no upside left to trade for the extra colour.
  *
  * Method per deal:
- *   1. Shuffle beads + blanks together (dealCustom-style uniform deal), chop
- *      into `tubes` chunks of `cap` slots each, drop the blanks. Reject a
- *      deal that is already solved.
+ *   1. Shuffle the C×cap bead multiset, pack it into exactly C completely
+ *      full tubes, then splice in one EMPTY tube at a uniformly random
+ *      position among the C+1 slots (the position is purely cosmetic — it
+ *      changes which rack slot looks empty, not the opening's legal-move
+ *      count, since Rotate flips tube CONTENTS, not rack positions — but
+ *      randomising it keeps the rack visually varied day to day). Reject a
+ *      deal that is already solved (theoretically possible, vanishingly
+ *      rare — every non-empty tube happening to land monochrome).
  *   2. Filter 1 — Rotate required: keep the deal only if an EXHAUSTIVE
  *      pour-only search (pruned legalPours, weighted-A* over pours alone,
  *      node budget 600k) fails to find any solution, i.e. the pour-only
@@ -53,12 +66,15 @@
  *      solution whose length lands inside the tier's par window.
  *   4. Emit `{ tubes, par }` — 200 boards per tier by default.
  *
- * Expected acceptance (rotate filter alone, before par-windowing), from the
- * full-stack frontier study: easy ≈78%, medium ≈93%, hard ≈97%. Because
- * every tier is now an exactly-full cap-3 rack, acceptance climbs with
- * colour count instead of collapsing the way the old depth-heavy hard tier
- * did — there is no forgiveness dial left to lean on (no short colours), so
- * hard's difficulty comes entirely from colour count and par, not depth.
+ * Expected acceptance (measured on this exact pipeline — deal, W2-solve,
+ * rotate filter, par window — 200-survivor runs per tier): overall
+ * generator acceptance 62.9% / 77.5% / 85.1% for easy/medium/hard, and
+ * pipeline-realistic persistent-random solve% (30 random playouts/board)
+ * 92.0% / 86.8% / 80.7%. Pinning costs a few points of forgiveness and about
+ * a move of par versus the old spread deal at the same colour count — the
+ * trade for a guaranteed real opening choice on every board. Logical
+ * colours are dense 0..C−1; the display mapping (which hues, which order)
+ * lives in game.js, not here.
  *
  * Deterministic: mulberry32 PRNG, per-tier seed derived from a top-level
  * seed (CLI arg 2, default fixed below) so the shipped pool is reproducible.
@@ -87,48 +103,34 @@ function shuffle(rng, arr) {
   return arr;
 }
 
-// Per-tier config. Difficulty rides `colors` (6/8/9); `tubes` = colors+1;
-// `cap` is fixed at 3 for every tier — the full-stack ladder: every colour
-// gets exactly `cap` beads, so a completed tumbler is exactly full. `short`
-// (how many of `colors` colours are dealt cap-1 beads instead of cap — see
-// beadsShortRandom below) is 0 on every shipped tier; the knob is kept alive
-// in code but unused after the short-colour design rejection (see the
-// header comment and tier-ladder-study.md). Par windows bracket the
-// full-stack frontier's uniform-deal par means (~12/17/20) with headroom
-// either side. The windows overlap at the edges (15 and 17-20 are shared);
-// tiers separate by MEDIAN par (13/17/20), not by disjoint ranges.
+// Per-tier config. Difficulty rides `colors` (6/7/8); `tubes` = colors+1
+// (colors full tubes + one pinned empty); `cap` is fixed at 3 for every
+// tier — every colour gets exactly `cap` beads, so a completed tumbler is
+// exactly full and there is no short-colour dial. Par windows are the ones
+// validated in the pinned-empty settle study (tier-ladder-study.md,
+// "Revision 2: the pinned empty tumbler") so the shipped pools match the
+// measured pipeline acceptance/solve numbers in the header comment above.
 const TIERS = [
-  { key: 'easy',   colors: 6, tubes: 7,  cap: 3, short: 0, minPar: 10, maxPar: 15 },
-  { key: 'medium', colors: 8, tubes: 9,  cap: 3, short: 0, minPar: 15, maxPar: 20 },
-  { key: 'hard',   colors: 9, tubes: 10, cap: 3, short: 0, minPar: 17, maxPar: 23 },
+  { key: 'easy',   colors: 6, tubes: 7, cap: 3, minPar: 10, maxPar: 16 },
+  { key: 'medium', colors: 7, tubes: 8, cap: 3, minPar: 13, maxPar: 19 },
+  { key: 'hard',   colors: 8, tubes: 9, cap: 3, minPar: 15, maxPar: 21 },
 ];
 
-// m of `colors` colours (a FRESH uniformly-random subset every call) dealt
-// cap-1 beads instead of cap. Unlike a fixed "colours 0..m-1 are short"
-// scheme, this keeps short-ness from ever correlating with a colour identity
-// (display colour assignment lives entirely in game.js).
-function beadsShortRandom(rng, cap, m, colors) {
-  const idx = Array.from({ length: colors }, (_, i) => i);
-  shuffle(rng, idx);
-  const shortSet = new Set(idx.slice(0, m));
-  const arr = [];
-  for (let c = 0; c < colors; c++) arr.push(cap - (shortSet.has(c) ? 1 : 0));
-  return arr;
-}
-
-// Uniform deal (dealCustom, from the grid study): shuffle beads + blanks
-// together, chop into `tubes` chunks of `cap` slots each, drop the blanks.
-// Slack is spread by the shuffle, not pinned to any one tube.
-function dealBoard(rng, cap, tubes, beadsPerColorArr) {
-  const colors = beadsPerColorArr.length;
+// Pinned-empty deal: shuffle the C×cap bead multiset and pack it into
+// exactly `colors` completely full tubes (no blanks anywhere in the shuffle
+// — every colour gets exactly `cap` beads by construction), then splice in
+// one EMPTY tube at a uniformly random position among the `colors+1` rack
+// slots. Slack equals `cap` exactly (one tube's worth), all held in a single
+// tube instead of spread across the rack — this is the whole of the design
+// change from the old uniform deal (dealBoard, removed this revision).
+function dealBoardPinned(rng, cap, colors) {
   const items = [];
-  for (let c = 0; c < colors; c++) for (let k = 0; k < beadsPerColorArr[c]; k++) items.push(c);
-  const totalSlots = tubes * cap;
-  const slack = totalSlots - items.length;
-  for (let b = 0; b < slack; b++) items.push(-1);
+  for (let c = 0; c < colors; c++) for (let k = 0; k < cap; k++) items.push(c);
   shuffle(rng, items);
   const board = [];
-  for (let t = 0; t < tubes; t++) board.push(items.slice(t * cap, (t + 1) * cap).filter(x => x >= 0));
+  for (let c = 0; c < colors; c++) board.push(items.slice(c * cap, (c + 1) * cap));
+  const emptyAt = randInt(rng, colors + 1); // cosmetic only — rotate flips contents, not rack position
+  board.splice(emptyAt, 0, []);
   return board;
 }
 
@@ -179,16 +181,15 @@ function solveNoRotate(startBoard, K, cap) {
 }
 
 function generateTier(tier, seedBase) {
-  const { key, colors, tubes, cap: K, short: m, minPar, maxPar } = tier;
+  const { key, colors, tubes, cap: K, minPar, maxPar } = tier;
   const puzzles = [];
   let tries = 0, rejSolved = 0, rejNoSolve = 0, rejNoRotate = 0, rejPar = 0;
   const t0 = Date.now();
-  const maxTries = COUNT * 200;   // generous headroom; even easy's ~78% rotate-filter acceptance clears this fast
+  const maxTries = COUNT * 200;   // generous headroom; overall acceptance is 63-85% on this pipeline
   while (puzzles.length < COUNT && tries < maxTries) {
     tries++;
     const rng = mulberry32((seedBase ^ Math.imul(tries, 2654435761)) >>> 0);
-    const beads = beadsShortRandom(rng, K, m, colors);
-    const board = dealBoard(rng, K, tubes, beads);
+    const board = dealBoardPinned(rng, K, colors);
     if (E.solved(board)) { rejSolved++; continue; }
 
     const w2 = S.solve(board, K, { weight: 2, nodeCap: 250000 });
@@ -211,13 +212,13 @@ function generateTier(tier, seedBase) {
     `  ${key}: accepted ${puzzles.length}/${COUNT} in ${elapsedS.toFixed(1)}s from ${tries} deals` +
     ` — rejected: solved-at-start=${rejSolved} no-solve-budget=${rejNoSolve} no-rotate=${rejNoRotate} par-window=${rejPar}` +
     ` — par min=${pars[0]} median=${med} max=${pars[pars.length - 1]}` +
-    ` (colors=${colors}, tubes=${tubes}, cap=${K}, short=${m})`
+    ` (colors=${colors}, tubes=${tubes}, cap=${K}, pinned-empty)`
   );
   return { colors, tubes, cols: Math.ceil(tubes / 2), cap: K, puzzles };
 }
 
 console.log(`Generating ${COUNT} boards per tier (seed=${SEED})…`);
-const out = { version: 4, generated: new Date().toISOString(), tiers: {} };
+const out = { version: 5, generated: new Date().toISOString(), tiers: {} };
 for (const tier of TIERS) {
   const seedBase = (SEED ^ Math.imul((tier.colors * 16 + tier.cap) * 2654435761, 40503)) >>> 0;
   out.tiers[tier.key] = generateTier(tier, seedBase);

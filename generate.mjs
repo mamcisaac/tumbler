@@ -95,7 +95,8 @@ function shuffle(rng, arr) {
 // in code but unused after the short-colour design rejection (see the
 // header comment and tier-ladder-study.md). Par windows bracket the
 // full-stack frontier's uniform-deal par means (~12/17/20) with headroom
-// either side, kept non-overlapping so tiers separate cleanly by par.
+// either side. The windows overlap at the edges (15 and 17-20 are shared);
+// tiers separate by MEDIAN par (13/17/20), not by disjoint ranges.
 const TIERS = [
   { key: 'easy',   colors: 6, tubes: 7,  cap: 3, short: 0, minPar: 10, maxPar: 15 },
   { key: 'medium', colors: 8, tubes: 9,  cap: 3, short: 0, minPar: 15, maxPar: 20 },

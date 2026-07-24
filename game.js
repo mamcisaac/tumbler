@@ -69,8 +69,10 @@
   // keeps 6 — dropping orange(1), spring(4) AND orchid(8) (orange sits between
   // red and gold; spring/orchid are the closest-neighbour hues left) — medium
   // restores orange AND spring for 8 (only orchid still out) — and hard brings
-  // orchid back last, so every glyph/luminance pairing (see DARK_SET above) is
-  // only ever fully in play on hard. Each entry maps a puzzle's stored logical
+  // orchid back last. Orchid is the one restored hue WITHOUT an opposite-
+  // luminance glyph partner (purple/orchid share a luminance in DARK_SET, as do
+  // cyan/blue), so it leans hardest on shape alone — which is why it only ever
+  // appears on hard. Each entry maps a puzzle's stored logical
   // colour k → an index into the master .c0–.c8 palette and SHAPE glyphs. Solve
   // logic stays on the dense logical indices; this only changes what's drawn,
   // so the same board data serves every tier.

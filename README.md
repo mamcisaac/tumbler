@@ -12,7 +12,7 @@ Every day ships three boards, matching the arcade's easy→medium→hard run. Di
 
 | Tier | Colours | Tumblers | Layout | Par (median) |
 |---|---|---|---|---|
-| Easy | 6 | 7 | 2×4−1 | ~12 |
+| Easy | 6 | 7 | 2×4−1 | ~13 |
 | Medium | 8 | 9 | 2×5−1 | ~17 |
 | Hard | 9 | 10 | 2×5 | ~20 |
 

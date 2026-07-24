@@ -1,5 +1,13 @@
 # Design study: the colour-ramp tier ladder
 
+> **Revised.** The ladder this study's "Short answer" and "Recommendation"
+> sections arrive at — colours 6→7→8 over depths 3/4/5 with the short-colour
+> dial — shipped briefly and was then revised after playtest feedback: short
+> colours read as confusing and asymmetric. The CURRENT design is the
+> **full-stack colour ladder** (6/8/9 colours over 7/9/10 tumblers, all
+> 3-deep, no short colours) — see the dated **Revision** section at the end
+> of this document for the follow-up research and the shipped numbers.
+
 **Question:** the shipped generator ramps difficulty by tube HEIGHT — all three
 tiers use the same 7 colours + 1 pinned-empty tube (8 tubes, 2×4), and only K
 (beads per colour) grows 3→4→5. Should difficulty instead ramp by COLOUR
@@ -368,16 +376,20 @@ only the two K=3 rows (C8T9, C9T10) feed the shipped ladder below.
 Three colour counts at one fixed cap, tubes = colours + 1, full palette
 (no short colours) — every completed tumbler is exactly full:
 
-| Tier | cell | slack | par (W2/opt) | accept% (rotate filter) | filtered persistent solve% | filtered par p10–p90 | filtered mean rotates |
+| Tier | cell | slack | filtered par (W2/opt) | accept% (rotate filter) | filtered persistent solve% | filtered par p10–p90 | filtered mean rotates |
 |---|---|---|---|---|---|---|---|
 | Easy   | C6 T7 K3 | 3 | 12.38 / 12.09 | **78.0%** (N=150) | **96.2%** | 11–14 | 1.57 |
 | Medium | C8 T9 K3 | 3 | 17.24 / 17.13 | **93.0%** (N=500) | **89.0%** | 15–19 | 2.23 |
 | Hard   | C9 T10 K3 | 3 | 19.85 / 19.82 | **97.3%** (N=300) | **82.9%** | 18–22 | 2.73 |
 
-`generate.mjs`'s par windows (10–15 / 15–20 / 17–23) are centred on these
-means with headroom either side, non-overlapping so tiers stay cleanly
-separated by par — the same approach as the original ladder, just recentred
-on the new full-stack par means (~12 / 17 / 20 instead of ~12 / 20 / 28).
+(Par columns here are the FILTERED subset's means — the boards the generator
+ships — so they differ a hair from the all-deals frontier table above.)
+Re-running the persistent-playout model on the actually-shipped v4
+`puzzles.json` (200 boards/tier × 30 playouts) confirms the cell estimates:
+**96.1% / 89.5% / 83.6%**. `generate.mjs`'s par windows (10–15 / 15–20 /
+17–23) are centred on these means with headroom either side; unlike the
+original ladder's windows they overlap at the edges — tiers separate by
+MEDIAN par (13 / 17 / 20), not by disjoint ranges.
 
 ### The acknowledged trade-off: depth is no longer a lever
 

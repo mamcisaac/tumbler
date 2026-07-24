@@ -55,24 +55,23 @@ body {
      to the device grid so beads share a raster phase (the plain clamp before each is the
      fallback for engines without round()). Same reasoning for the board's row gap. */
   /* --cell is deliberately CONSTANT across tiers: a bead is the same size whether
-     you're on easy or hard, so the only thing that changes with difficulty is how
-     TALL the tumbler is (see --cap on .urn). The dvh factor is sized for the
-     deepest tier (hard, --cap:5) so its two rows still fit the viewport — easy and
-     medium then simply come out shorter, which is the point. */
+     you're on easy or hard. Every tier is now 3-deep (--cap:3) — difficulty grows
+     the rack SIDEWAYS (more tumblers per row), not taller — so the dvh factor,
+     originally sized for a 5-deep rack, leaves comfortable viewport headroom. */
   --cell: clamp(22px, 3.5dvh, 34px);
   --cell: round(clamp(22px, 3.5dvh, 34px), 1px);
   --gap: clamp(4px, .8dvh, 6px);
   --gap: round(clamp(4px, .8dvh, 6px), 1px);
   --cols: 4;
-  /* Beads per tumbler for the CURRENT tier (game.js sets it from the tier's cap:
-     easy 3 / medium 4 / hard 5). Drives tumbler height so a tube is exactly as
+  /* Beads per tumbler (game.js sets it from the tier's cap — 3 on every tier
+     under the full-stack ladder). Drives tumbler height so a tube is exactly as
      tall as the stack it holds — no dead headroom, no crammed beads. */
-  --cap: 4;
+  --cap: 3;
   display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end;
   gap: clamp(8px, 1.7dvh, 15px) 9px;
   gap: round(clamp(8px, 1.7dvh, 15px), 1px) 9px;
-  /* Width is capped at exactly --cols tumblers, so the 8 tubes wrap into two
-     centred rows of 4 on every tier. */
+  /* Width is capped at exactly --cols tumblers (game.js sets 4 or 5 per tier),
+     so the 7/9/10 tubes wrap into two centred rows. */
   max-width: calc(var(--cols) * (var(--cell) + 13px) + (var(--cols) - 1) * 9px + 2px);
   margin: 0 auto; padding: clamp(4px, 1.4dvh, 14px) 0;
   perspective: 1300px;

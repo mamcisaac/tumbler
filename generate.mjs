@@ -3,31 +3,40 @@
  *   node generate.mjs [count] [seed]
  *
  * Every daily ships three boards — easy / medium / hard. Difficulty is a
- * COLOUR ramp, not a depth ramp: each tier grows the colour count C (6 → 7 →
- * 8) on a modestly-growing rack (T = C+1 tubes, cap K = 3/4/5), with slack
- * spread by a UNIFORM deal — no pinned empty tube, no fixed "reserve" slot:
+ * COLOUR ramp, not a depth ramp: each tier grows the colour count C
+ * (6 → 8 → 9) on a modestly-growing rack (T = C+1 tubes), with slack spread
+ * by a UNIFORM deal — no pinned empty tube, no fixed "reserve" slot. This is
+ * the FULL-STACK ladder: every tier caps at K=3 and every colour gets
+ * exactly K beads (a completed tumbler is exactly full, no short colours):
  *
- *   easy    6 colours × 3 beads              → 7 tubes, cap 3, 21 slots (slack 3)
- *   medium  7 colours × 4 beads, 1 short (3)  → 8 tubes, cap 4, 32 slots (slack 5)
- *   hard    8 colours × 5 beads, 4 short (4)  → 9 tubes, cap 5, 45 slots (slack 9)
+ *   easy    6 colours × 3 beads → 7 tubes,  cap 3, 21 slots (slack 3)
+ *   medium  8 colours × 3 beads → 9 tubes,  cap 3, 27 slots (slack 3)
+ *   hard    9 colours × 3 beads → 10 tubes, cap 3, 30 slots (slack 3)
  *
- * "short" colours are dealt one bead fewer than the rest — that's the extra
- * slack knob beyond (T−C)·K, and WHICH colours are short is a fresh uniform
- * choice every deal (never fixed indices), so short-ness never correlates
- * with a colour identity. Logical colours are dense 0..C−1; the display
+ * Short colours (dealing m of the colours one bead fewer than the rest) are
+ * REMOVED from the shipped ladder as of this revision — design feedback
+ * flagged them as confusing/asymmetric (a colour that never fills its cap
+ * reads as a bug, not a difficulty knob). The short-colour machinery
+ * (`beadsShortRandom`, `TIERS[…].short`) is kept in the code below because
+ * it is harmless and still fully documented, but every shipped tier now
+ * runs with `short: 0`. Logical colours are dense 0..C−1; the display
  * mapping (which hues, which order) lives in game.js, not here.
  *
- * Why colour count, not tube height: a `/tmp/.../grid/` sweep over
+ * Why colour count, not tube height: the original grid sweep over
  * (colours C, tubes T=C+1, depth K, short-colours m) found that depth alone
  * gets punishing fast — at slack held fixed, adding a colour costs ~3pp of
  * persistent-random forgiveness at K=3 but ~17pp at K=5 (colour count and
- * depth COMPOUND rather than add) — while short-colour slack (m) is a much
- * gentler, more controllable dial at any fixed (C,T,K). So the ladder rides
- * colours (this file's `colors`) across modest depths (3/4/5), and uses `m`
- * to tune each tier's forgiveness/rotate-requirement trade-off independently.
- * Full methodology, the frontier tables, and the shipped-vs-baseline numbers
- * are written up in tier-ladder-study.md (reproduce with
- * `node tier-ladder-study.mjs`).
+ * depth COMPOUND rather than add). A follow-up study re-litigated the
+ * short-colour dial after the design rejection and confirmed the same
+ * conclusion holds without it: pushing colour count at a fixed, EXACTLY-full
+ * cap of 3 (never growing K, never shorting a colour) is the frontier that
+ * best trades off generation speed, rotate-necessity, and forgiveness. A
+ * separate "headroom" alternative (shorting every colour by one bead at
+ * higher K, chasing extra slack that way instead) was measured and
+ * rejected — it collapses rotate-requirement to 0–3% acceptance. Full
+ * methodology, the frontier tables, and the shipped-vs-baseline numbers are
+ * written up in tier-ladder-study.md's "Revision: the full-stack colour
+ * ladder" section.
  *
  * Method per deal:
  *   1. Shuffle beads + blanks together (dealCustom-style uniform deal), chop
@@ -44,12 +53,12 @@
  *      solution whose length lands inside the tier's par window.
  *   4. Emit `{ tubes, par }` — 200 boards per tier by default.
  *
- * Expected acceptance (rotate filter alone, before par-windowing) from the
- * grid study, N=300 confirmation runs: easy ≈78%, medium ≈67%, hard ≈13%.
- * Hard's rotate filter is stingy because slack=9 lets plain water-sort often
- * squeak through anyway; that's WHY hard leans on m=4 (four short colours)
- * to buy back enough forgiveness once the rotate-required subset is taken —
- * see tier-ladder-study.md's "short-colour slack dial" section.
+ * Expected acceptance (rotate filter alone, before par-windowing), from the
+ * full-stack frontier study: easy ≈78%, medium ≈93%, hard ≈97%. Because
+ * every tier is now an exactly-full cap-3 rack, acceptance climbs with
+ * colour count instead of collapsing the way the old depth-heavy hard tier
+ * did — there is no forgiveness dial left to lean on (no short colours), so
+ * hard's difficulty comes entirely from colour count and par, not depth.
  *
  * Deterministic: mulberry32 PRNG, per-tier seed derived from a top-level
  * seed (CLI arg 2, default fixed below) so the shipped pool is reproducible.
@@ -78,16 +87,20 @@ function shuffle(rng, arr) {
   return arr;
 }
 
-// Per-tier config. Difficulty rides `colors` (6/7/8); `tubes` = colors+1;
-// `cap` = tube height (3/4/5); `short` = how many of `colors` colours are
-// dealt cap-1 beads instead of cap (a fresh random subset every deal — see
-// beadsShortRandom below). Par windows bracket the colour-ramp ladder's
-// uniform-deal par means from the grid study (~12/20/28) with headroom
-// either side, kept non-overlapping so tiers separate cleanly by par.
+// Per-tier config. Difficulty rides `colors` (6/8/9); `tubes` = colors+1;
+// `cap` is fixed at 3 for every tier — the full-stack ladder: every colour
+// gets exactly `cap` beads, so a completed tumbler is exactly full. `short`
+// (how many of `colors` colours are dealt cap-1 beads instead of cap — see
+// beadsShortRandom below) is 0 on every shipped tier; the knob is kept alive
+// in code but unused after the short-colour design rejection (see the
+// header comment and tier-ladder-study.md). Par windows bracket the
+// full-stack frontier's uniform-deal par means (~12/17/20) with headroom
+// either side. The windows overlap at the edges (15 and 17-20 are shared);
+// tiers separate by MEDIAN par (13/17/20), not by disjoint ranges.
 const TIERS = [
-  { key: 'easy',   colors: 6, tubes: 7, cap: 3, short: 0, minPar: 10, maxPar: 15 },
-  { key: 'medium', colors: 7, tubes: 8, cap: 4, short: 1, minPar: 17, maxPar: 23 },
-  { key: 'hard',   colors: 8, tubes: 9, cap: 5, short: 4, minPar: 24, maxPar: 31 },
+  { key: 'easy',   colors: 6, tubes: 7,  cap: 3, short: 0, minPar: 10, maxPar: 15 },
+  { key: 'medium', colors: 8, tubes: 9,  cap: 3, short: 0, minPar: 15, maxPar: 20 },
+  { key: 'hard',   colors: 9, tubes: 10, cap: 3, short: 0, minPar: 17, maxPar: 23 },
 ];
 
 // m of `colors` colours (a FRESH uniformly-random subset every call) dealt
@@ -170,7 +183,7 @@ function generateTier(tier, seedBase) {
   const puzzles = [];
   let tries = 0, rejSolved = 0, rejNoSolve = 0, rejNoRotate = 0, rejPar = 0;
   const t0 = Date.now();
-  const maxTries = COUNT * 200;   // hard's ~13% rotate-filter acceptance needs headroom
+  const maxTries = COUNT * 200;   // generous headroom; even easy's ~78% rotate-filter acceptance clears this fast
   while (puzzles.length < COUNT && tries < maxTries) {
     tries++;
     const rng = mulberry32((seedBase ^ Math.imul(tries, 2654435761)) >>> 0);
@@ -204,7 +217,7 @@ function generateTier(tier, seedBase) {
 }
 
 console.log(`Generating ${COUNT} boards per tier (seed=${SEED})…`);
-const out = { version: 3, generated: new Date().toISOString(), tiers: {} };
+const out = { version: 4, generated: new Date().toISOString(), tiers: {} };
 for (const tier of TIERS) {
   const seedBase = (SEED ^ Math.imul((tier.colors * 16 + tier.cap) * 2654435761, 40503)) >>> 0;
   out.tiers[tier.key] = generateTier(tier, seedBase);

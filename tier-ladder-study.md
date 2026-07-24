@@ -1,5 +1,13 @@
 # Design study: the colour-ramp tier ladder
 
+> **Revised.** The ladder this study's "Short answer" and "Recommendation"
+> sections arrive at — colours 6→7→8 over depths 3/4/5 with the short-colour
+> dial — shipped briefly and was then revised after playtest feedback: short
+> colours read as confusing and asymmetric. The CURRENT design is the
+> **full-stack colour ladder** (6/8/9 colours over 7/9/10 tumblers, all
+> 3-deep, no short colours) — see the dated **Revision** section at the end
+> of this document for the follow-up research and the shipped numbers.
+
 **Question:** the shipped generator ramps difficulty by tube HEIGHT — all three
 tiers use the same 7 colours + 1 pinned-empty tube (8 tubes, 2×4), and only K
 (beads per colour) grows 3→4→5. Should difficulty instead ramp by COLOUR
@@ -225,3 +233,180 @@ above). Difficulty rides colour count across a modest, ladder-appropriate
 depth; the m dial tunes each tier's forgiveness independently of the other
 two; and the rotate-required filter guarantees the signature mechanic
 matters on every board, easy included.
+
+## 2026-07-24 — Revision: the full-stack colour ladder
+
+**Question:** the short-colour dial above (`m`) was the ladder's second axis
+— it's what let hard reach 8 colours at K=5 without collapsing to 31%
+forgiveness. Design review rejected short colours outright: not on the
+numbers, but on the player experience — a colour that never fills its
+capped tube reads as a bug ("why won't this one finish?"), not as a
+difficulty knob, and it's asymmetric in a way nothing else in the board is.
+With `m` off the table for every tier, does the colour-count axis alone
+still produce a usable three-tier ladder, and is there another slack source
+that could stand in for `m`?
+
+**Short answer:** yes to the first, no to the second. Colour count alone,
+at a single fixed cap (K=3, "full-stack" — every colour dealt exactly `cap`
+beads, so a solved tumbler is exactly full), reproduces a clean,
+monotonically-tightening frontier across C=5..9 with no depth growth at
+all. The tempting substitute for `m` — "headroom" (short every colour by
+one bead, but recover the lost slack by pushing K up instead of holding it
+flat) — was measured and rejected: it collapses rotate-requirement to
+0–3% acceptance, and a follow-up check found the ONE prior result that
+looked promising for this shape (the original sweep's "regime E") was
+itself a bug, not a signal. The shipped ladder now rides colour count only
+(6 → 8 → 9), cap pinned at 3 for all three tiers, no short colours anywhere.
+
+### Short colours are gone: design feedback, not data
+
+To be explicit about the reason for the change, since it isn't visible in
+any of the numbers below: short colours were not rejected because they
+measured badly (the opposite — the shipped `m=1`/`m=4` ladder in the
+section above hit its forgiveness targets exactly as designed). They were
+rejected on design/UX grounds — a colour that's "short" by definition never
+fills its tube even when the puzzle is otherwise solved, which reads as
+broken rather than intentional. `generate.mjs` keeps the short-colour
+machinery (`beadsShortRandom`, the `short` field on each tier) in place —
+it's harmless dead capability, fully documented — but every shipped tier
+now runs with `short: 0`.
+
+### Re-litigating the slack problem: the "headroom" alternative (rejected)
+
+With `m` off the table, the natural substitute is to buy slack the other
+way: short every colour by one bead (`m = C`, i.e. every colour is short),
+but recover the lost fill by pushing K up a notch, on the theory that maybe
+a slightly-deeper, all-short rack could still be usefully rotate-required.
+Measured directly (family **H**, `uniform/results.json`, N=150/cell):
+
+| cell | K | C | T | m | slack | accept% (rotate filter) | filtered persistent solve% |
+|---|---|---|---|---|---|---|---|
+| H_C6_T7_B3_cap4 | 4 | 6 | 7 | 6 | 10 | 0.7% | 100% |
+| H_C7_T8_B3_cap4 | 4 | 7 | 8 | 7 | 11 | 0% | — (filterN=0) |
+| H_C8_T9_B3_cap4 | 4 | 8 | 9 | 8 | 12 | 0.7% | 100% |
+| H_C6_T7_B4_cap5 | 5 | 6 | 7 | 6 | 11 | 0.7% | 100% |
+| H_C7_T8_B4_cap5 | 5 | 7 | 8 | 7 | 12 | 0.7% | 100% |
+| H_C8_T9_B4_cap5 | 5 | 8 | 9 | 8 | 13 | 2% | 93.3% |
+| H_C7_T8_B5_cap6 | 6 | 7 | 8 | 7 | 13 | 0% | — (filterN=0) |
+| H_C8_T9_B5_cap6 | 6 | 8 | 9 | 8 | 14 | 2.7% | 100% |
+
+Every headroom cell lands at **0–3% rotate-filter acceptance** — nowhere
+near usable for daily generation (compare the chosen full-stack cells
+below, all ≥78%). Extra depth with every colour already short just hands
+plain water-sort enough room to solve almost everything without ever
+touching Rotate. Headroom is rejected as a slack source.
+
+### The regime-E false lead, found and fixed
+
+One number looked like it contradicted the table above: the original
+`sweep/sweep.mjs`'s "regime E" cells (a same-shaped short/higher-K attempt,
+`sweep/sweep.out`) reported **64% / 92% / 98.7%** rotate-filter acceptance
+at K=3/4/5 — the opposite conclusion from family H. Chasing the
+discrepancy (`uniform/verify-sweepE.mjs`) found the cause: `sweep.mjs`'s
+regime E passed the wrong capacity into the pour-only prover — it called
+`solveNoRotate` with `K = beadsPerColor` (e.g. 3) instead of the deal's
+actual tube cap (`beadsPerColor + 1` = 4), so the prover thought every tube
+had one less slot of room than it really did and over-reported "provably
+needs Rotate" on boards that were actually pour-solvable. Reproducing the
+exact bug at C=7, T=8, beadsPerColor=3, cap=4 (N=300, freshly re-run for
+this revision):
+
+- **Buggy** (prover sees cap=3, deal's real cap=4): provably-needs-Rotate =
+  **74.0%** (determined=300) — matches the shape of sweep.mjs's inflated
+  regime-E numbers.
+- **Fixed** (prover sees the deal's real cap=4, matched): provably-needs-Rotate
+  = **0.0%** (determined=300) — matches family H's near-zero numbers exactly.
+
+Confirmed: the original regime-E acceptance figures were a capacity-mismatch
+artifact, not a real design opportunity. Headroom stays rejected on the
+corrected (family H) numbers.
+
+### The full-stack frontier
+
+With `m` fixed at 0 everywhere, the remaining question is purely: which
+(colours C, cap K) cells make a usable three-rung ladder? The frontier
+below holds every colour full-stack (every colour dealt exactly `cap`
+beads) and sweeps C at each of K=3/4/5 (`grid/results.json`'s `F_known`
+family, N=150/cell, T=C+1 throughout), plus two new C=9 cells run for this
+revision (`uniform/results.json`'s `F_new`, N=150):
+
+| K (=cap) | C | T | accept% (rotate filter) | filtered persistent solve% | par (W2 mean / opt mean) |
+|---|---|---|---|---|---|
+| 3 | 5 | 6  | 65.3% | 99.83% | 10.06 / 10.10 |
+| 3 | 6 | 7  | 78.0% | 96.21% | 12.30 / 12.13 |
+| 3 | 7 | 8  | 84.7% | 92.81% | 14.65 / 14.55 |
+| 3 | 8 | 9  | 90.0% | 88.79% | 17.17 / 17.05 |
+| 3 | 9 | 10 | 95.3% | 84.03% | 19.59 / 19.48 |
+| 4 | 5 | 6  | 68.0% | 88.37% | 14.46 / 14.50 |
+| 4 | 6 | 7  | 78.7% | 81.50% | 17.88 / 17.73 |
+| 4 | 7 | 8  | 92.7% | 70.05% | 21.67 / 21.40 |
+| 4 | 8 | 9  | 95.3% | 59.25% | 25.20 / 24.65 |
+| 4 | 9 | 10 | 98.7% | 43.54% | 29.77 / 29.15 |
+| 5 | 5 | 6  | 76.0% | 80.41% | 18.75 / 18.25 |
+| 5 | 6 | 7  | 93.3% | 64.43% | 23.52 / 23.40 |
+| 5 | 7 | 8  | 94.0% | 50.00% | 28.77 / 28.32 |
+| 5 | 8 | 9  | 100%  | 31.40% | 33.77 / 33.45 |
+
+The pattern is the same C-axis compounding the original study found: at any
+fixed K, accept% rises and filtered solve% falls as C grows, and the whole
+curve gets steeper at higher K. At K=3 the curve is gentle enough to cover
+all three tiers (C=6 → 96.2% forgiving down to C=9 → 84.0% forgiving)
+without ever leaving a comfortable band — which is exactly why the revised
+ladder holds K=3 for every tier rather than climbing it per tier as before.
+
+Two of the K=4/K=5 cells (`C6_T7_cap4`, `C5_T6_cap5`) and the K=3 `C8_T9`
+and `C9_T10` cells were re-confirmed at larger N to settle sampling noise
+(`uniform/results.json`'s `settle500`/`settle300`):
+
+| cell | N | accept% | filtered persistent solve% |
+|---|---|---|---|
+| C6 T7 K4 (cap4) | 500 | 86.2% | 78.65% (was 79.38% @N300) |
+| C5 T6 K5 (cap5) | 500 | 79.4% | 81.86% (was 81.06% @N300) |
+| C8 T9 K3 (cap3) | 500 | 93.0% | 89.03% (was 88.72% @N300) |
+| C9 T10 K3 (cap3) | 300 | 97.3% | 82.88% |
+
+All four settle runs confirm their N=150 estimates were not sampling noise.
+The K=4/K=5 candidates were carried into this settle pass because a
+depth-plus-colour ladder was still on the table early in this revision; the
+final brief calls for a single flat cap across all three tiers instead, so
+only the two K=3 rows (C8T9, C9T10) feed the shipped ladder below.
+
+### The chosen ladder (implemented)
+
+Three colour counts at one fixed cap, tubes = colours + 1, full palette
+(no short colours) — every completed tumbler is exactly full:
+
+| Tier | cell | slack | filtered par (W2/opt) | accept% (rotate filter) | filtered persistent solve% | filtered par p10–p90 | filtered mean rotates |
+|---|---|---|---|---|---|---|---|
+| Easy   | C6 T7 K3 | 3 | 12.38 / 12.09 | **78.0%** (N=150) | **96.2%** | 11–14 | 1.57 |
+| Medium | C8 T9 K3 | 3 | 17.24 / 17.13 | **93.0%** (N=500) | **89.0%** | 15–19 | 2.23 |
+| Hard   | C9 T10 K3 | 3 | 19.85 / 19.82 | **97.3%** (N=300) | **82.9%** | 18–22 | 2.73 |
+
+(Par columns here are the FILTERED subset's means — the boards the generator
+ships — so they differ a hair from the all-deals frontier table above.)
+Re-running the persistent-playout model on the actually-shipped v4
+`puzzles.json` (200 boards/tier × 30 playouts) confirms the cell estimates:
+**96.1% / 89.5% / 83.6%**. `generate.mjs`'s par windows (10–15 / 15–20 /
+17–23) are centred on these means with headroom either side; unlike the
+original ladder's windows they overlap at the edges — tiers separate by
+MEDIAN par (13 / 17 / 20), not by disjoint ranges.
+
+### The acknowledged trade-off: depth is no longer a lever
+
+The clearest cost of dropping short colours: hard's par drops from ~24–31
+(the old `C8 K5 m4` cell, mean 27.8) to ~17–23 (the new `C9 K3` cell, mean
+19.85) — roughly eight fewer moves at the top of the ladder. That's the
+direct consequence of pinning every tier to cap 3: without a short-colour
+dial to buy back forgiveness at higher K, depth stops being a usable lever
+at all — pushing K up alone at full-stack (m=0) costs forgiveness far too
+fast per the frontier table above (e.g. C8 goes from 88.8% forgiving at K=3
+to 59.3% at K=4 to 31.4% at K=5) to spend on a "harder" tier without also
+growing accept% uncomfortably close to 100% (i.e., every deal becoming
+essentially guaranteed rotate-required, which flattens the tier's texture).
+Hard's difficulty now comes entirely from colour count (9, the most any
+tier has shipped) and the tightened par window, not from tube depth. If a
+future revision wants more move-count headroom at the top of the ladder
+without reintroducing short colours, growing colour count further (C=10+)
+is the only remaining axis — the frontier table above suggests it should
+still be usable, since the K=3 row's accept%/solve% curve is the gentlest
+of the three depths measured.
